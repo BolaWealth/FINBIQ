@@ -1,0 +1,12 @@
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Office temp / lock files
+~$*.docx
+~$*.doc
+*.tmp
+*.bak
+
+# Logs
+*.log
