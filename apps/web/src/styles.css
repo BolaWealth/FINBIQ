@@ -1,0 +1,23 @@
+@import "../../../packages/design-system/tokens.css";
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-family);
+  margin: 0;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+button {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
