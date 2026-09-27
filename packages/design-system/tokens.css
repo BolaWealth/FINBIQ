@@ -1,0 +1,20 @@
+/* FINBIQ Design Tokens v0.1.0 — generated from design-preview.html, single source: tokens.json */
+:root {
+  --bg: #0B0F19;
+  --bg2: #111827;
+  --card: #151D2E;
+  --card2: #1A2438;
+  --border: #243150;
+  --text: #F1F5F9;
+  --muted: #94A3B8;
+  --accent: #6366F1;
+  --accent2: #22C55E;
+  --info: #22D3EE;
+  --warn: #F59E0B;
+  --warn2: #F97316;
+  --danger: #EF4444;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-pill: 999px;
+  --font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
