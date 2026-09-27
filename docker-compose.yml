@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: finbiq
+      POSTGRES_USER: finbiq
+      POSTGRES_PASSWORD: finbiq_dev_only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  # api and web run via `pnpm dev` locally for now (no Vercel/Supabase).
+  # Added as compose services in Step 5 once Dockerfiles exist.
+
+volumes:
+  pgdata:
+  redisdata:

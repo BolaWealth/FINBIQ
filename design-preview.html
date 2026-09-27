@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FINBIQ — Design Preview (Personal + Business)</title>
+<style>
+:root{--bg:#0B0F19;--bg2:#111827;--card:#151D2E;--card2:#1A2438;--border:#243150;--text:#F1F5F9;--muted:#94A3B8;--accent:#6366F1;--accent2:#22C55E;--warn:#F59E0B;--danger:#EF4444;--radius:16px}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+.topbar{display:flex;align-items:center;gap:16px;padding:16px 28px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,15,25,.92);backdrop-filter:blur(10px);z-index:10}
+.logo{font-weight:800;font-size:22px;letter-spacing:.5px}.logo span{color:var(--accent)}
+.mode-toggle{display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:4px;margin-left:auto}
+.mode-toggle button{border:0;background:transparent;color:var(--muted);padding:8px 18px;border-radius:999px;font-weight:700;cursor:pointer}
+.mode-toggle button.active{background:var(--accent);color:#fff}
+.layout{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 65px)}
+.side{border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;gap:4px}
+.side a{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--muted);text-decoration:none;font-size:14px;font-weight:600}
+.side a.active,.side a:hover{background:var(--card2);color:var(--text)}
+.main{padding:26px 28px;max-width:1200px;width:100%}
+h1{font-size:26px;margin-bottom:4px} .sub{color:var(--muted);font-size:14px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card small{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+.card .v{font-size:24px;font-weight:800;margin-top:6px}.card .d{font-size:12px;margin-top:4px}.up{color:var(--accent2)}.down{color:var(--danger)}
+.row{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+.bar{height:8px;background:#0B0F19;border-radius:99px;overflow:hidden;margin-top:8px;border:1px solid var(--border)}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#22D3EE)}
+.bar.warn i{background:linear-gradient(90deg,var(--warn),#F97316)}
+.ai{border:1px solid #3730A3;background:linear-gradient(180deg,#1E1B4B,#151D2E);border-radius:var(--radius);padding:16px}
+.ai h3{font-size:15px;margin-bottom:8px}.ai p{font-size:13px;color:#C7D2FE;line-height:1.5}
+.btn{display:inline-block;margin-top:12px;background:var(--accent);color:#fff;border:0;padding:9px 16px;border-radius:10px;font-weight:700;cursor:pointer}
+.txn{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.txn:last-child{border:0}.pill{font-size:11px;padding:3px 8px;border-radius:99px;background:#0B0F19;border:1px solid var(--border);color:var(--muted)}
+.hidden{display:none}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:none}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="topbar">
+<div class="logo">FIN<span>BIQ</span></div>
+<div style="color:var(--muted);font-size:13px">Your money. Your business. Your financial intelligence.</div>
+<div class="mode-toggle"><button id="bP" class="active" onclick="show('personal')">Personal Mode</button><button id="bB" onclick="show('business')">Business Mode</button></div>
+</div>
+<div class="layout">
+<nav class="side">
+<a href="#" class="active">◈ Dashboard</a><a href="#">◎ Wallet</a><a href="#">⇄ Transfers</a><a href="#">🧾 Bills</a><a href="#">📊 Budgeting</a><a href="#">💰 Savings</a><a href="#">📈 Investments</a><a href="#">🏦 Financing</a><a href="#">📑 Reports</a><a href="#">🎁 Rewards · 1,250 pts</a><a href="#">✦ Ask FINBIQ AI</a>
+</nav>
+<main class="main">
+<!-- PERSONAL -->
+<div id="personal">
+<h1>Good evening, Bola 👋</h1><div class="sub">Here's your personal finance overview</div>
+<div class="grid">
+<div class="card"><small>Available Balance</small><div class="v">₦842,500</div><div class="d up">+12.4% vs last month</div></div>
+<div class="card"><small>Income (May)</small><div class="v">₦650,000</div><div class="d" style="color:var(--muted)">Salary + side hustle</div></div>
+<div class="card"><small>Expenses</small><div class="v">₦312,800</div><div class="d down">+8% vs avg</div></div>
+<div class="card"><small>Savings</small><div class="v">₦210,000</div><div class="d up">68% of ₦310k goal</div></div>
+</div>
+<div class="row">
+<div>
+<div class="card" style="margin-bottom:14px"><small>Budget — Food · May</small><div class="v" style="font-size:18px">₦75,000 / ₦100,000 · 75%</div><div class="bar warn"><i style="width:75%"></i></div><div class="d" style="color:var(--warn);margin-top:8px">“You have used 75% of your food budget this month.”</div></div>
+<div class="card"><small>Recent transactions</small>
+<div class="txn"><span>Transfer from Salary — GTBank</span><b class="up">+₦500,000</b></div>
+<div class="txn"><span>Shoprite — Groceries <span class="pill">Food</span></span><b>−₦24,500</b></div>
+<div class="txn"><span>Netflix <span class="pill">Bills</span></span><b>−₦7,500</b></div>
+<div class="txn"><span>Savings — Rent Goal</span><b class="up">+₦50,000</b></div>
+</div>
+</div>
+<div>
+<div class="ai"><h3>✦ Ask FINBIQ AI</h3><p>Dining spend is up 22%. Move ₦20,000 from Entertainment to Food to stay on track, and auto-save ₦15,000 weekly to hit your rent goal by Aug 30.</p><button class="btn">Chat with AI</button></div>
+<div class="card" style="margin-top:14px"><small>Goals</small><div class="v" style="font-size:16px">Rent · ₦210k / ₦310k</div><div class="bar"><i style="width:68%"></i></div><div style="margin-top:10px;font-size:13px;color:var(--muted)">Rewards: 1,250 pts · Emergency fund next</div></div>
+</div>
+</div>
+</div>
+<!-- BUSINESS -->
+<div id="business" class="hidden">
+<h1>Acme Ventures — Business Overview</h1><div class="sub">Revenue, cash flow and obligations at a glance</div>
+<div class="grid">
+<div class="card"><small>Business Balance</small><div class="v">₦4.2M</div><div class="d up">Healthy runway</div></div>
+<div class="card"><small>Revenue (May)</small><div class="v">₦6.8M</div><div class="d up">+18% MoM</div></div>
+<div class="card"><small>Expenses</small><div class="v">₦4.1M</div><div class="d down">Payroll 62%</div></div>
+<div class="card"><small>Profit / Loss</small><div class="v" style="color:var(--accent2)">+₦2.7M</div><div class="d" style="color:var(--muted)">Margin 39%</div></div>
+</div>
+<div class="row">
+<div>
+<div class="card" style="margin-bottom:14px"><small>Cash flow — last 6 weeks</small>
+<div style="display:flex;gap:6px;align-items:flex-end;height:90px;margin-top:12px">
+<div style="flex:1;background:var(--accent);border-radius:6px;height:45%"></div><div style="flex:1;background:var(--accent);border-radius:6px;height:60%"></div><div style="flex:1;background:var(--accent);border-radius:6px;height:52%"></div><div style="flex:1;background:var(--warn);border-radius:6px;height:80%"></div><div style="flex:1;background:var(--accent2);border-radius:6px;height:70%"></div><div style="flex:1;background:var(--accent2);border-radius:6px;height:88%"></div>
+</div><div class="d" style="color:var(--muted);margin-top:8px">Supplier payout ₦890k due Friday · Payroll in 9 days</div></div>
+<div class="card"><small>Payments queue</small>
+<div class="txn"><span>Supplier — Chidi Foods</span><b>−₦890,000 · Due Fri</b></div>
+<div class="txn"><span>Payroll — 6 staff</span><b>−₦2.1M · Jun 5</b></div>
+<div class="txn"><span>Inflow — Jumia payout</span><b class="up">+₦1.4M · Expected</b></div>
+</div>
+</div>
+<div>
+<div class="ai"><h3>✦ AI Business Insights</h3><p>Cash flow dips every 2nd week after supplier runs. Split supplier payments bi-weekly and keep ₦1.5M buffer to avoid overdraft. Eligible for ₦3M working-capital line.</p><button class="btn">View report</button></div>
+<div class="card" style="margin-top:14px"><small>Budgets</small><div class="v" style="font-size:16px">Ops · 61% used</div><div class="bar"><i style="width:61%"></i></div></div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<script>function show(m){document.getElementById('personal').classList.toggle('hidden',m!=='personal');document.getElementById('business').classList.toggle('hidden',m!=='business');document.getElementById('bP').classList.toggle('active',m==='personal');document.getElementById('bB').classList.toggle('active',m==='business')}</script>
+</body>
+</html>

@@ -10,3 +10,20 @@ Desktop.ini
 
 # Logs
 *.log
+
+# Env (never commit real secrets)
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
+build/
+.pnpm-store/
+
+# Postgres / Redis data (docker volumes, local dumps)
+*.dump
+pgdata/
+
+# Design preview build artifacts (keep source html)
+*.tsbuildinfo
