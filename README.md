@@ -20,7 +20,7 @@ docs/adr/            # architecture decisions
 ```
 
 ## Local prerequisites (install once)
-1. Node 20 LTS + pnpm
+1. Node 22 LTS + pnpm
 2. Docker Desktop (includes Compose)
 3. Cloudflare R2 bucket + API token
 

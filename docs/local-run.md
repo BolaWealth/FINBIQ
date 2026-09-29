@@ -1,7 +1,7 @@
 # Local run (Windows, no Supabase / no Vercel)
 
 ## 1. Prerequisites (once)
-1. Node 20 LTS from nodejs.org — verify: `node --version`, `npm --version`
+1. Node 22 LTS from nodejs.org — verify: `node --version`, `npm --version`
 2. Docker Desktop (for Postgres 16 + Redis 7) — verify: `docker --version`
 3. Cloudflare R2 bucket + token (storage only; app runs without it, uploads fail until set)
 

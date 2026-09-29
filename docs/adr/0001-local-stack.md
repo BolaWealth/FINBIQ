@@ -17,6 +17,6 @@ Status: Accepted
 - Vite+React + Node API avoids Vercel lock-in.
 
 ## Consequences
-- Must install Node 20 + Docker Desktop locally.
+- Must install Node 22 + Docker Desktop locally.
 - Backups are owner responsibility (`pg_dump` cron + R2 copy).
 - R2 still requires network + Cloudflare account.

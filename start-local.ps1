@@ -6,7 +6,7 @@ function Need($cmd, $installHint) {
   if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) { throw "$cmd missing. $installHint" }
 }
 
-Need node "Install Node 20 LTS from nodejs.org, then reopen terminal."
+Need node "Install Node 22 LTS from nodejs.org, then reopen terminal."
 Need docker "Install Docker Desktop, start it, then retry."
 
 Write-Host "== 1/4 data services =="
