@@ -1,0 +1,14 @@
+{
+  "name": "finbiq",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:api": "pnpm --filter @finbiq/api dev",
+    "dev:web": "pnpm --filter @finbiq/web dev",
+    "db:apply": "docker compose exec -T postgres psql -U finbiq -d finbiq -f - < services/api/db/schema.sql",
+    "db:seed": "docker compose exec -T postgres psql -U finbiq -d finbiq -f - < services/api/db/seed.sql"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
