@@ -1,8 +1,10 @@
 // FINBIQ API skeleton v0.1.0 — stdlib http only (no framework yet).
-// Routes: GET /health, ALL /api/auth/* (BetterAuth), POST /v1/transfers (ledger stub).
+// Routes: GET /health, ALL /api/auth/* (BetterAuth), POST /v1/transfers,
+// GET /v1/wallets/:id/balance, GET /v1/budgets?owner=, GET /v1/savings/goals?owner=.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth } from "./auth.js";
 import { postTransfer } from "./ledger.js";
+import { getWalletBalance, listBudgets, listSavingsGoals } from "./queries.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
@@ -48,6 +50,31 @@ createServer(async (req, res) => {
       return json(res, out.deduped ? 200 : 201, out);
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "transfer_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/v1/wallets/") && url.pathname.endsWith("/balance")) {
+    const id = url.pathname.split("/")[3];
+    try {
+      return json(res, 200, await getWalletBalance(id));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "balance_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/budgets") {
+    try {
+      return json(res, 200, await listBudgets(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "budgets_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/savings/goals") {
+    try {
+      return json(res, 200, await listSavingsGoals(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "goals_failed" });
     }
   }
 
