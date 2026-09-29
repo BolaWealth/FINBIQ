@@ -1,8 +1,10 @@
 # Local run (Windows, no Supabase / no Vercel)
 
 ## 1. Prerequisites (once)
-1. Node 22 LTS from nodejs.org — verify: `node --version`, `npm --version`
-2. Docker Desktop (for Postgres 16 + Redis 7) — verify: `docker --version`
+1. Node 22 LTS from nodejs.org — verify: `node --version`, `npm.cmd --version`
+2. PostgreSQL 17 native (EDB installer) — Docker Desktop NOT required (needs Win10 22H2+, this machine is 1909). Verify: `psql --version`
+   - During install set postgres superuser password `finbiq_dev_only`, port `5432`.
+   - Or Docker path (only on Win10 22H2+/Win11): Docker Desktop — verify: `docker --version`
 3. Cloudflare R2 bucket + token (storage only; app runs without it, uploads fail until set)
 
 ## 2. Configure
@@ -12,7 +14,13 @@ Copy-Item apps\web\.env.example apps\web\.env
 # edit .env: DATABASE_URL, BETTER_AUTH_SECRET, R2_* values
 ```
 
-## 3. Start data services
+## 3. Start data (native, no Docker)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-local.ps1 -NoDocker
+```
+This starts the `postgresql-x64-17` service if stopped, creates role/db `finbiq`, applies schema+seed, then opens API + web windows.
+
+## 3b. Start data (Docker path, Win10 22H2+ only)
 ```powershell
 docker compose up -d postgres redis
 docker compose ps

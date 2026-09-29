@@ -3,7 +3,7 @@
 AI-powered personal + business finance platform. See `FINBIQ - Product Requirements Document.docx` for full PRD.
 
 ## Stack (locked)
-- DB: Local Postgres 16 (no Supabase) + Redis 7 for cache/queues
+- DB: Local Postgres 17 (no Supabase) + Redis 7 for cache/queues
 - Auth: BetterAuth (self-hosted, Postgres-backed)
 - Storage: Cloudflare R2 (S3-compatible)
 - Hosting: Local device via Docker Compose (no Vercel)

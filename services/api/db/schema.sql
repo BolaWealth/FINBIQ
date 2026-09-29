@@ -1,4 +1,4 @@
--- FINBIQ schema v0.1.0 — local Postgres 16. Apply with: psql $DATABASE_URL -f schema.sql
+-- FINBIQ schema v0.1.0 — local Postgres 16/17. Apply with: psql $DATABASE_URL -f schema.sql
 -- Order: extensions -> betterauth -> domain -> ledger -> app -> indexes.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
