@@ -8,8 +8,14 @@ import { getWalletBalance, listBudgets, listSavingsGoals } from "./queries.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
+const cors = {
+  "access-control-allow-origin": process.env.WEB_URL ?? "http://localhost:5173",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-headers": "content-type,authorization",
+};
+
 const json = (res: ServerResponse, status: number, body: unknown) => {
-  res.writeHead(status, { "content-type": "application/json" });
+  res.writeHead(status, { "content-type": "application/json", ...cors });
   res.end(JSON.stringify(body));
 };
 
@@ -23,6 +29,11 @@ const readBody = (req: IncomingMessage) =>
 
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, cors);
+    return res.end();
+  }
 
   if (req.method === "GET" && url.pathname === "/health")
     return json(res, 200, { ok: true, service: "finbiq-api", version: "0.1.0" });
