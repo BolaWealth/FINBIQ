@@ -38,6 +38,18 @@ createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/health")
     return json(res, 200, { ok: true, service: "finbiq-api", version: "0.1.0" });
 
+  if (req.method === "GET" && url.pathname === "/") {
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>FINBIQ API</title>
+<style>body{font-family:system-ui,sans-serif;background:#0B0F19;color:#F1F5F9;padding:32px}code{background:#1A2438;padding:2px 6px;border-radius:6px}a{color:#22D3EE}li{margin:6px 0}</style>
+</head><body><h1>FINBIQ API is running</h1><p>Machine-readable status: <a href="/health">/health</a></p>
+<p>Visual product lives at <a href="http://localhost:5173">http://localhost:5173</a></p><ul>
+<li><code>GET /health</code></li><li><code>POST /v1/transfers</code></li>
+<li><code>GET /v1/wallets/:id/balance</code></li><li><code>GET /v1/budgets?owner=</code></li>
+<li><code>GET /v1/savings/goals?owner=</code></li></ul></body></html>`;
+    res.writeHead(200, { "content-type": "text/html", ...cors });
+    return res.end(html);
+  }
+
   if (url.pathname.startsWith("/api/auth/")) {
     try {
       const res2 = await auth.handler(new Request(url, { method: req.method, headers: req.headers as never }));
