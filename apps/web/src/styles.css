@@ -1,10 +1,7 @@
 @import "../../../packages/design-system/tokens.css";
 
 body {
-  background:
-    radial-gradient(900px 400px at 85% -5%, rgba(139, 92, 246, 0.22), transparent 60%),
-    radial-gradient(700px 380px at 5% 10%, rgba(45, 212, 191, 0.12), transparent 60%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-family);
   margin: 0;
@@ -24,37 +21,37 @@ body {
   margin: 16px 0;
 }
 button {
-  background: var(--card2);
+  background: var(--bg2);
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 9px 16px;
   font-weight: 700;
   cursor: pointer;
 }
 button.active {
-  background: linear-gradient(135deg, var(--accent), #6d28d9);
+  background: var(--accent);
   color: #fff;
-  border-color: transparent;
+  border-color: var(--accent);
 }
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 .grid2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 .card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)), var(--card);
+  background: linear-gradient(180deg, var(--card), var(--card2));
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px;
-  box-shadow: 0 8px 28px rgba(2, 6, 23, 0.45);
+  box-shadow: 0 2px 10px rgba(91, 33, 182, 0.06);
 }
 .card small {
   color: var(--muted);
@@ -88,11 +85,12 @@ button.active {
   border-radius: 99px;
   overflow: hidden;
   margin-top: 8px;
+  border: 1px solid var(--border);
 }
 .bar i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent2), var(--info));
+  background: linear-gradient(90deg, var(--accent), var(--info));
 }
 .bar.warn i {
   background: linear-gradient(90deg, var(--warn), var(--warn2));
@@ -120,7 +118,7 @@ button.active {
 }
 .row-form input {
   flex: 1;
-  background: #0a0f26;
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text);
@@ -148,12 +146,15 @@ button.active {
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 99px;
-  background: #0a0f26;
+  background: var(--bg2);
   border: 1px solid var(--border);
   color: var(--muted);
 }
 .txn.clickable {
   cursor: pointer;
+}
+.txn.clickable:hover span:first-child {
+  color: var(--accent);
 }
 
 /* Brand bar */
@@ -170,13 +171,9 @@ button.active {
   font-size: 22px;
   text-decoration: none;
   color: var(--text);
-  letter-spacing: 0.5px;
 }
 .brand span {
-  background: linear-gradient(90deg, var(--accent), var(--accent2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--accent);
 }
 .links {
   display: flex;
@@ -193,26 +190,22 @@ button.active {
   border-radius: 10px;
 }
 .links a:hover {
-  background: var(--card2);
+  background: var(--bg2);
   color: var(--text);
 }
 .links a.on {
-  background: linear-gradient(135deg, var(--accent), #6d28d9);
+  background: var(--accent);
   color: #fff;
 }
 
-/* Aurora hero */
+/* Purple hero */
 .hero-aurora {
-  position: relative;
-  overflow: hidden;
-  border-radius: 24px;
-  padding: 44px 32px;
+  border-radius: 20px;
+  padding: 40px 32px;
   margin-bottom: 14px;
-  border: 1px solid #3b2d7a;
-  background:
-    radial-gradient(420px 220px at 80% 10%, rgba(245, 179, 1, 0.28), transparent 60%),
-    radial-gradient(520px 260px at 15% 90%, rgba(45, 212, 191, 0.25), transparent 60%),
-    linear-gradient(135deg, #150b3d, #2b1470 55%, #0d2b33);
+  border: 1px solid #c4b5fd;
+  background: linear-gradient(135deg, #2e1065, #5b21b6 60%, #7c3aed);
+  color: #fff;
 }
 .hero-aurora .kick {
   display: inline-block;
@@ -220,30 +213,29 @@ button.active {
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: var(--gold-hi);
-  border: 1px solid rgba(245, 179, 1, 0.5);
+  color: #ede9fe;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 99px;
   padding: 5px 14px;
   margin-bottom: 14px;
 }
 .hero-aurora h1 {
-  font-size: 36px;
-  line-height: 1.15;
+  font-size: 34px;
+  line-height: 1.2;
   margin: 0 0 12px;
   color: #fff;
 }
 .hero-aurora h1 em {
   font-style: normal;
-  background: linear-gradient(90deg, #c4b5fd, var(--accent2), var(--gold-hi));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #ede9fe;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
 }
 .hero-aurora p {
   font-size: 15px;
   line-height: 1.6;
   max-width: 560px;
-  color: #c9cdf2;
+  color: #e6e1fb;
   margin: 0 0 20px;
 }
 .cta-row {
@@ -253,17 +245,17 @@ button.active {
   flex-wrap: wrap;
 }
 .cta-row button {
-  background: linear-gradient(135deg, var(--gold), #d99a06);
-  color: #241300;
+  background: #fff;
+  color: #5b21b6;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 12px 22px;
   font-size: 14px;
 }
 .cta-row button.ghost {
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 .chips {
   display: flex;
@@ -271,9 +263,8 @@ button.active {
   flex-wrap: wrap;
 }
 .chip {
-  background: rgba(7, 11, 26, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 14px;
   padding: 10px 16px;
 }
@@ -284,10 +275,10 @@ button.active {
 }
 .chip span {
   font-size: 11px;
-  color: #b9c0e8;
+  color: #ede9fe;
 }
 
-/* Section cards as gallery */
+/* Section cards */
 .link-card {
   text-align: left;
   cursor: pointer;
@@ -296,15 +287,10 @@ button.active {
 }
 .link-card:hover {
   border-color: var(--accent);
-  transform: translateY(-2px);
-  transition: transform 0.15s ease;
 }
 .emoji {
   font-size: 28px;
   margin-bottom: 8px;
-}
-.txn.clickable:hover span:first-child {
-  color: var(--accent);
 }
 
 /* Greeting + balance */
@@ -318,7 +304,7 @@ button.active {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  background: var(--accent);
   color: #fff;
   display: flex;
   align-items: center;
@@ -327,24 +313,22 @@ button.active {
   font-size: 18px;
 }
 .balance-card {
-  background:
-    radial-gradient(300px 140px at 85% 0%, rgba(245, 179, 1, 0.35), transparent 60%),
-    linear-gradient(135deg, #1b0f4d, #3b1a9e 60%, #0e4a44);
+  background: linear-gradient(135deg, #2e1065, #5b21b6 60%, #7c3aed);
   color: #fff;
-  border: 1px solid #4c3a9e;
+  border: 0;
   border-radius: 20px;
   padding: 22px;
   margin-bottom: 12px;
 }
 .balance-card small {
-  color: var(--gold-hi);
+  color: #ede9fe;
 }
 .balance-card .v {
   color: #fff;
   font-size: 32px;
 }
 .balance-card .d {
-  color: #c9cdf2;
+  color: #e6e1fb;
 }
 .balance-actions {
   display: flex;
@@ -353,9 +337,9 @@ button.active {
 }
 .balance-actions button {
   flex: 1;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(245, 179, 1, 0.55);
-  color: var(--gold-hi);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
   border-radius: 12px;
   padding: 10px;
 }
@@ -409,11 +393,10 @@ button.active {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(13, 19, 48, 0.96);
+  background: #fff;
   border-top: 1px solid var(--border);
   padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
   z-index: 20;
-  backdrop-filter: blur(8px);
 }
 .tabbar button {
   flex: 1;
@@ -428,7 +411,7 @@ button.active {
   padding: 6px;
 }
 .tabbar button.on {
-  color: var(--gold-hi);
+  color: var(--accent);
 }
 .tabbar .ti {
   font-size: 22px;
