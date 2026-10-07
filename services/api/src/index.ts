@@ -44,7 +44,7 @@ createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/") {
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>FINBIQ API</title>
-<style>body{font-family:system-ui,sans-serif;background:#0B0F19;color:#F1F5F9;padding:32px}code{background:#1A2438;padding:2px 6px;border-radius:6px}a{color:#22D3EE}li{margin:6px 0}</style>
+<style>body{font-family:Inter,system-ui,sans-serif;background:#FFFFFF;color:#221C3A;padding:32px}h1{color:#5B21B6}code{background:#F5F2FF;border:1px solid #E3DDF5;padding:2px 6px;border-radius:6px}a{color:#5B21B6}li{margin:6px 0}</style>
 </head><body><h1>FINBIQ API is running</h1><p>Machine-readable status: <a href="/health">/health</a></p>
 <p>Visual product lives at <a href="http://localhost:5173">http://localhost:5173</a></p><ul>
 <li><code>GET /health</code></li><li><code>POST /v1/transfers</code></li>
