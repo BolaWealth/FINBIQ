@@ -185,6 +185,32 @@ export async function awardPoints(userId: string, points: number, reason: string
   await pool.query(`INSERT INTO rewards_points (user_id, points, reason) VALUES ($1,$2,$3)`, [userId, points, reason]);
 }
 
+// Simple success metrics (PRD Sec.30): counts and sums straight from the tables.
+export async function platformMetrics() {
+  const q = (sql: string) => pool.query(sql).then((r) => r.rows[0]);
+  const [users, wallets, tx, budgets, goals, points, biz] = await Promise.all([
+    q(`SELECT count(*) AS n FROM "user"`),
+    q(`SELECT count(*) AS n FROM wallets`),
+    q(`SELECT count(*) AS n, COALESCE(SUM(CASE WHEN status='completed' THEN amount ELSE 0 END),0) AS volume,
+       COALESCE(100.0*SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END)/NULLIF(count(*),0),0) AS success_rate FROM transfers`),
+    q(`SELECT count(*) AS n FROM budgets`),
+    q(`SELECT count(*) AS n FROM savings_goals`),
+    q(`SELECT COALESCE(SUM(points),0) AS total FROM rewards_points`),
+    q(`SELECT count(*) AS n FROM businesses`),
+  ]);
+  return {
+    users: Number(users.n),
+    wallets: Number(wallets.n),
+    transfers: Number(tx.n),
+    transferVolume: tx.volume,
+    transferSuccessRate: Number(tx.success_rate).toFixed(1) + "%",
+    budgets: Number(budgets.n),
+    savingsGoals: Number(goals.n),
+    pointsAwarded: Number(points.total),
+    businesses: Number(biz.n),
+  };
+}
+
 export async function getProfile(userId: string) {
   const u = await pool.query(`SELECT id, name, email, "emailVerified" FROM "user" WHERE id = $1`, [userId]);
   if (!u.rowCount) throw new Error("user not found");

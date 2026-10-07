@@ -49,6 +49,7 @@ export default function App() {
   const [bizId, setBizId] = useState("");
   const [estimate, setEstimate] = useState<{ maxEligible: number; disclaimer: string } | null>(null);
   const [invest, setInvest] = useState<InvestItem[]>([]);
+  const [metrics, setMetrics] = useState<Record<string, string | number> | null>(null);
   const [msg, setMsg] = useState("");
 
   const owner = uid ?? OWNER;
@@ -120,6 +121,10 @@ export default function App() {
     fetch(`${API}/v1/investments`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j.items) && setInvest(j.items))
+      .catch(() => {});
+    fetch(`${API}/v1/metrics`)
+      .then((r) => r.json())
+      .then((j) => j.users !== undefined && setMetrics(j))
       .catch(() => {});
   }, [owner, bizId]);
 
@@ -314,6 +319,20 @@ export default function App() {
           </div>
 
           <AuthPanel onUser={setUid} />
+
+          <div className="card">
+            <small>Platform metrics (PRD Sec.30)</small>
+            {metrics ? (
+              <div className="d">
+                Users {metrics.users} · Wallets {metrics.wallets} · Transfers {metrics.transfers} ·
+                Volume {fmt(metrics.transferVolume)} · Success {metrics.transferSuccessRate} ·
+                Budgets {metrics.budgets} · Goals {metrics.savingsGoals} · Points {metrics.pointsAwarded} ·
+                Businesses {metrics.businesses}
+              </div>
+            ) : (
+              <div className="d">loading…</div>
+            )}
+          </div>
         </>
       ) : (
         <>
