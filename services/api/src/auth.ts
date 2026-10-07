@@ -18,6 +18,31 @@ export const auth = betterAuth({
     autoSignIn: true,
   },
   plugins: [twoFactor()],
+  databaseHooks: {
+    user: {
+      create: {
+        // Local onboarding: every new account starts with a wallet + defaults
+        // so the dashboard works immediately (PRD Sec.24 Step 3).
+        after: async (user) => {
+          const w = await pool.query(
+            `INSERT INTO wallets (owner_user_id, currency) VALUES ($1,'NGN') RETURNING id`,
+            [user.id]
+          );
+          await pool.query(
+            `INSERT INTO categories (owner_user_id, name, kind) VALUES
+             ($1,'Food','expense'), ($1,'Salary','income') ON CONFLICT DO NOTHING`,
+            [user.id]
+          );
+          await pool.query(
+            `INSERT INTO notifications (user_id, type, title, body) VALUES
+             ($1,'account','Welcome to FINBIQ','Your wallet is ready. Set a budget or savings goal to begin.')`,
+            [user.id]
+          );
+          console.log(`[onboarding] wallet ${w.rows[0].id} created for ${user.id}`);
+        },
+      },
+    },
+  },
   session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24 },
   advanced: { database: { generateId: false } },
   trustedOrigins: [process.env.WEB_URL ?? "http://localhost:5173"],
