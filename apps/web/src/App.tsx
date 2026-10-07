@@ -16,6 +16,22 @@ type Biz = { id: string; name: string };
 type BizSummary = { balance: string; budgets: number; upcoming: { id: string; amount: string; status: string }[] };
 type InvestItem = { id: string; name: string; risk: string; minAmount: number; note: string };
 
+type Page =
+  | "home" | "wallet" | "history" | "budgets" | "savings"
+  | "loans" | "invest" | "business" | "reports" | "account";
+
+const PAGES: { id: Page; label: string; emoji: string; blurb: string }[] = [
+  { id: "wallet", label: "Wallet", emoji: "👛", blurb: "Balance, send money, live from your ledger." },
+  { id: "history", label: "Transactions", emoji: "🧾", blurb: "Every transfer with live status." },
+  { id: "budgets", label: "Budgets", emoji: "📊", blurb: "Set limits, watch live spend bars." },
+  { id: "savings", label: "Savings", emoji: "💰", blurb: "Goals, progress, earn FINBIQ Points." },
+  { id: "loans", label: "Loans", emoji: "🏦", blurb: "Affordability estimate from your activity." },
+  { id: "invest", label: "Investments", emoji: "📈", blurb: "Learn the options, risks clearly labeled." },
+  { id: "business", label: "Business", emoji: "🏢", blurb: "Business wallets, budgets, upcoming payments." },
+  { id: "reports", label: "Reports", emoji: "📑", blurb: "Income vs expenses, insights, platform metrics." },
+  { id: "account", label: "Account", emoji: "👤", blurb: "Sign in, app 2FA, password reset, profile." },
+];
+
 const fmt = (n: string | number) =>
   "\u20A6" + Number(n).toLocaleString("en-NG", { maximumFractionDigits: 0 });
 
@@ -30,8 +46,13 @@ async function post(path: string, body: unknown) {
   return j;
 }
 
+function pageFromHash(): Page {
+  const h = window.location.hash.replace("#/", "") as Page;
+  return PAGES.some((p) => p.id === h) ? h : "home";
+}
+
 export default function App() {
-  const [mode, setMode] = useState<"personal" | "business">("personal");
+  const [page, setPage] = useState<Page>(pageFromHash);
   const [health, setHealth] = useState("checking\u2026");
   const [balance, setBalance] = useState<string | null>(null);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -39,6 +60,7 @@ export default function App() {
   const [spent, setSpent] = useState("0");
   const [notices, setNotices] = useState<Notice[]>([]);
   const [history, setHistory] = useState<Transfer[]>([]);
+  const [detail, setDetail] = useState<(Transfer & { lines?: { wallet_id: string; debit: string; credit: string }[] }) | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [points, setPoints] = useState(0);
@@ -53,6 +75,18 @@ export default function App() {
   const [msg, setMsg] = useState("");
 
   const owner = uid ?? OWNER;
+
+  const go = (p: Page) => {
+    window.location.hash = `#/${p}`;
+    setPage(p);
+    window.scrollTo(0, 0);
+  };
+
+  useEffect(() => {
+    const onHash = () => setPage(pageFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   const refresh = useCallback(() => {
     fetch(`${API}/health`)
@@ -148,50 +182,183 @@ export default function App() {
 
   return (
     <main className="page">
-      <h1>FINBIQ Local</h1>
+      <nav className="topnav">
+        <a href="#/home" className="brand" onClick={(e) => { e.preventDefault(); go("home"); }}>
+          FIN<span>BIQ</span>
+        </a>
+        <div className="links">
+          {PAGES.map((p) => (
+            <a key={p.id} href={`#/${p.id}`} className={page === p.id ? "on" : ""}
+              onClick={(e) => { e.preventDefault(); go(p.id); }}>
+              {p.label}
+            </a>
+          ))}
+        </div>
+      </nav>
+
       <p className="muted">
         {health} · {profile ? `${profile.name} (${profile.email})` : ""} · 🎁 {points} pts
       </p>
-      <div className="toggle">
-        <button className={mode === "personal" ? "active" : ""} onClick={() => setMode("personal")}>
-          Personal Mode
-        </button>
-        <button className={mode === "business" ? "active" : ""} onClick={() => setMode("business")}>
-          Business Mode
-        </button>
-      </div>
       {msg && <p className="flash">{msg}</p>}
 
-      {mode === "personal" ? (
+      {page === "home" && (
         <>
+          <section className="hero">
+            <h1>Your money. Your business.<br />Your financial intelligence.</h1>
+            <p>
+              One wallet for spending, saving, budgeting and growing — with an AI assistant
+              that turns your activity into plain-language guidance. No bank queues, no
+              spreadsheet gymnastics.
+            </p>
+            <div className="cta-row">
+              <button onClick={() => go("wallet")}>Open my wallet</button>
+              <button className="ghost" onClick={() => go("savings")}>Start saving</button>
+            </div>
+            <div className="hero-stats">
+              <div><b>{balance === null ? "…" : fmt(balance)}</b><span>live demo balance</span></div>
+              <div><b>{goals.length}</b><span>savings goals</span></div>
+              <div><b>{points}</b><span>reward points</span></div>
+            </div>
+          </section>
+          <div className="grid">
+            {PAGES.map((p) => (
+              <button key={p.id} className="card link-card" onClick={() => go(p.id)}>
+                <div className="emoji">{p.emoji}</div>
+                <div className="v sm">{p.label} →</div>
+                <div className="d">{p.blurb}</div>
+              </button>
+            ))}
+          </div>
+          <div className="ai">
+            <h3>✦ Ask FINBIQ AI</h3>
+            {aiInsights.map((line, i) => (
+              <p key={i}>• {line}</p>
+            ))}
+          </div>
+        </>
+      )}
+
+      {page === "wallet" && (
+        <>
+          <h1>Wallet</h1>
           <div className="grid">
             <div className="card">
               <small>Available Balance</small>
-              <div className="v">{balance === null ? "\u2026" : fmt(balance)}</div>
+              <div className="v">{balance === null ? "…" : fmt(balance)}</div>
               <div className="d up">live from ledger</div>
             </div>
-            <div className="card">
-              <small>Budget — Food · {food?.period ?? "monthly"}</small>
-              <div className="v sm">
-                {food ? `${fmt(spent)} / ${fmt(food.limit_amount)}` : "no budget"}
+            <form
+              className="card"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const amt = new FormData(e.currentTarget).get("amount") as string;
+                run(
+                  () => post("/v1/transfers", {
+                    idempotencyKey: crypto.randomUUID(),
+                    fromWalletId: WALLET_A, toWalletId: WALLET_B,
+                    amount: amt, createdBy: owner,
+                  }),
+                  `Transferred ${fmt(amt)}`
+                );
+                e.currentTarget.reset();
+              }}
+            >
+              <small>Send money (A → B)</small>
+              <div className="row-form">
+                <input name="amount" placeholder="Amount" inputMode="decimal" required />
+                <button type="submit">Send</button>
               </div>
-              <div className="bar warn">
-                <i style={{ width: `${foodPct}%` }} />
+            </form>
+          </div>
+        </>
+      )}
+
+      {page === "history" && (
+        <>
+          <h1>Transaction history</h1>
+          <div className="card">
+            {history.map((t) => (
+              <div key={t.id}>
+                <div
+                  className="txn clickable"
+                  onClick={() => {
+                    if (detail?.id === t.id) return setDetail(null);
+                    fetch(`${API}/v1/transfers/${t.id}`)
+                      .then((r) => r.json())
+                      .then((j) => setDetail(j))
+                      .catch(() => {});
+                  }}
+                >
+                  <span>{fmt(t.amount)} · {new Date(t.created_at).toLocaleString()}</span>
+                  <span className="pill">{t.status}</span>
+                </div>
+                {detail?.id === t.id && detail.lines && (
+                  <div className="d" style={{ paddingLeft: 12 }}>
+                    {detail.lines.map((l, i) => (
+                      <div key={i}>wallet {l.wallet_id.slice(0, 8)}… debit {l.debit} / credit {l.credit}</div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="d warn-t">{foodPct.toFixed(0)}% used · live spend</div>
+            ))}
+            {!history.length && <div className="d">no transfers yet</div>}
+          </div>
+        </>
+      )}
+
+      {page === "budgets" && (
+        <>
+          <h1>Budgets</h1>
+          <div className="grid">
+            {budgets.map((b) => {
+              const pct = b.category === "Food"
+                ? (food ? foodPct : 0)
+                : 0;
+              return (
+                <div className="card" key={b.id}>
+                  <small>{b.category ?? "Budget"} · {b.period}</small>
+                  <div className="v sm">{b.category === "Food" ? `${fmt(spent)} / ${fmt(b.limit_amount)}` : `${fmt(b.limit_amount)} limit`}</div>
+                  <div className="bar warn"><i style={{ width: `${pct}%` }} /></div>
+                  <div className="d warn-t">{b.category === "Food" ? `${pct.toFixed(0)}% used · live spend` : "spend tracking per category lands next"}</div>
+                </div>
+              );
+            })}
+          </div>
+          <form
+            className="card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              run(() => post("/v1/budgets", {
+                ownerUserId: owner,
+                category: (f.get("category") as string) || "Food",
+                limitAmount: f.get("limit") as string,
+              }), "Budget created");
+              e.currentTarget.reset();
+            }}
+          >
+            <small>New budget</small>
+            <div className="row-form">
+              <input name="category" placeholder="Category" defaultValue="Food" />
+              <input name="limit" placeholder="Limit" inputMode="decimal" required />
+              <button type="submit">Add</button>
             </div>
+          </form>
+        </>
+      )}
+
+      {page === "savings" && (
+        <>
+          <h1>Savings goals</h1>
+          <div className="grid">
             {goals.map((g) => {
               const pct = Math.min(100, (Number(g.saved) / Number(g.target_amount)) * 100);
               return (
                 <div className="card" key={g.id}>
                   <small>Goal — {g.name}</small>
-                  <div className="v sm">
-                    {fmt(g.saved)} / {fmt(g.target_amount)}
-                  </div>
-                  <div className="bar">
-                    <i style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="d">{pct.toFixed(0)}% saved</div>
+                  <div className="v sm">{fmt(g.saved)} / {fmt(g.target_amount)}</div>
+                  <div className="bar"><i style={{ width: `${pct}%` }} /></div>
+                  <div className="d">{pct.toFixed(0)}% saved · +10 pts per contribution</div>
                   <form
                     className="row-form"
                     onSubmit={(e) => {
@@ -208,134 +375,39 @@ export default function App() {
               );
             })}
           </div>
+        </>
+      )}
 
-          <div className="grid2">
-            <form
-              className="card"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                const amt = f.get("amount") as string;
-                run(
-                  () =>
-                    post("/v1/transfers", {
-                      idempotencyKey: crypto.randomUUID(),
-                      fromWalletId: WALLET_A,
-                      toWalletId: WALLET_B,
-                      amount: amt,
-                      createdBy: owner,
-                    }),
-                  `Transferred ${fmt(amt)}`
-                );
-                e.currentTarget.reset();
-              }}
-            >
-              <small>Send money (A → B)</small>
-              <div className="row-form">
-                <input name="amount" placeholder="Amount" inputMode="decimal" required />
-                <button type="submit">Send</button>
-              </div>
-            </form>
-            <form
-              className="card"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                run(
-                  () =>
-                    post("/v1/budgets", {
-                      ownerUserId: owner,
-                      category: (f.get("category") as string) || "Food",
-                      limitAmount: f.get("limit") as string,
-                    }),
-                  "Budget created"
-                );
-                e.currentTarget.reset();
-              }}
-            >
-              <small>New budget</small>
-              <div className="row-form">
-                <input name="category" placeholder="Category" defaultValue="Food" />
-                <input name="limit" placeholder="Limit" inputMode="decimal" required />
-                <button type="submit">Add</button>
-              </div>
-            </form>
-          </div>
-
+      {page === "loans" && (
+        <>
+          <h1>Loans</h1>
           <div className="card">
-            <small>Notifications ({notices.length})</small>
-            {notices.slice(0, 5).map((n) => (
-              <div className="txn" key={n.id}>
-                <span>{n.title}</span>
-                <span className="pill">{n.type}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid2">
-            <div className="card">
-              <small>Report — income vs expenses</small>
-              <div className="v sm">
-                {summary ? `${fmt(summary.inflow)} in / ${fmt(summary.outflow)} out` : "…"}
-              </div>
-              <div className="d">
-                {summary ? `Saved ${fmt(summary.saved)} of ${fmt(summary.savingsTarget)} target` : ""}
-              </div>
-            </div>
-            <div className="card">
-              <small>Transaction history ({history.length})</small>
-              {history.slice(0, 5).map((t) => (
-                <div className="txn" key={t.id}>
-                  <span>{fmt(t.amount)}</span>
-                  <span className="pill">{t.status}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="ai">
-            <h3>✦ Ask FINBIQ AI</h3>
-            {aiInsights.map((line, i) => (
-              <p key={i}>• {line}</p>
-            ))}
-          </div>
-
-          <div className="grid2">
-            <div className="card">
-              <small>Financing — estimate only</small>
-              <div className="v sm">{estimate ? fmt(estimate.maxEligible) + " max" : "…"}</div>
-              <div className="d">{estimate?.disclaimer ?? ""}</div>
-            </div>
-            <div className="card">
-              <small>Investments — education only</small>
-              {invest.map((it) => (
-                <div className="txn" key={it.id}>
-                  <span>{it.name} <span className="pill">{it.risk}</span></span>
-                  <span className="d">{fmt(it.minAmount)} min</span>
-                </div>
-              ))}
-              <div className="d">Execution needs a licensed provider (PRD Sec.18).</div>
-            </div>
-          </div>
-
-          <AuthPanel onUser={setUid} />
-
-          <div className="card">
-            <small>Platform metrics (PRD Sec.30)</small>
-            {metrics ? (
-              <div className="d">
-                Users {metrics.users} · Wallets {metrics.wallets} · Transfers {metrics.transfers} ·
-                Volume {fmt(metrics.transferVolume)} · Success {metrics.transferSuccessRate} ·
-                Budgets {metrics.budgets} · Goals {metrics.savingsGoals} · Points {metrics.pointsAwarded} ·
-                Businesses {metrics.businesses}
-              </div>
-            ) : (
-              <div className="d">loading…</div>
-            )}
+            <small>Affordability estimate — not an offer</small>
+            <div className="v">{estimate ? fmt(estimate.maxEligible) + " max" : "…"}</div>
+            <div className="d">{estimate?.disclaimer ?? ""}</div>
           </div>
         </>
-      ) : (
+      )}
+
+      {page === "invest" && (
         <>
+          <h1>Investments</h1>
+          <div className="card">
+            <small>Learn first — education only</small>
+            {invest.map((it) => (
+              <div className="txn" key={it.id}>
+                <span><b>{it.name}</b><br /><span className="d">{it.note}</span></span>
+                <span className="pill">{it.risk}</span>
+              </div>
+            ))}
+            <div className="d">Execution needs a licensed provider (PRD Sec.18).</div>
+          </div>
+        </>
+      )}
+
+      {page === "business" && (
+        <>
+          <h1>Business</h1>
           <div className="grid">
             <div className="card">
               <small>Business Balance</small>
@@ -345,7 +417,6 @@ export default function App() {
             <div className="card">
               <small>Business budgets</small>
               <div className="v sm">{biz ? biz.budgets : budgets.length} active</div>
-              <div className="d">upcoming payments below</div>
             </div>
             <div className="card">
               <small>Upcoming payments</small>
@@ -386,7 +457,55 @@ export default function App() {
               <p key={i}>• {line}</p>
             ))}
           </div>
+        </>
+      )}
+
+      {page === "reports" && (
+        <>
+          <h1>Reports</h1>
+          <div className="grid">
+            <div className="card">
+              <small>Income vs expenses</small>
+              <div className="v sm">{summary ? `${fmt(summary.inflow)} in / ${fmt(summary.outflow)} out` : "…"}</div>
+              <div className="d">{summary ? `Saved ${fmt(summary.saved)} of ${fmt(summary.savingsTarget)} target` : ""}</div>
+            </div>
+            <div className="card">
+              <small>Notifications ({notices.length})</small>
+              {notices.slice(0, 5).map((n) => (
+                <div className="txn" key={n.id}>
+                  <span>{n.title}</span>
+                  <span className="pill">{n.type}</span>
+                </div>
+              ))}
+            </div>
+            <div className="card">
+              <small>Platform metrics</small>
+              {metrics ? (
+                <div className="d">
+                  Users {metrics.users} · Wallets {metrics.wallets} · Transfers {metrics.transfers} ·
+                  Volume {fmt(metrics.transferVolume)} · Success {metrics.transferSuccessRate} ·
+                  Budgets {metrics.budgets} · Goals {metrics.savingsGoals} · Points {metrics.pointsAwarded} ·
+                  Businesses {metrics.businesses}
+                </div>
+              ) : (
+                <div className="d">loading…</div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {page === "account" && (
+        <>
+          <h1>Account</h1>
           <AuthPanel onUser={setUid} />
+          {profile && (
+            <div className="card">
+              <small>Profile</small>
+              <div className="v sm">{profile.name}</div>
+              <div className="d">{profile.email} · 🎁 {points} pts</div>
+            </div>
+          )}
         </>
       )}
     </main>
