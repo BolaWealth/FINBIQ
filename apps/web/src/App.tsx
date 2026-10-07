@@ -17,7 +17,7 @@ type BizSummary = { balance: string; budgets: number; upcoming: { id: string; am
 type InvestItem = { id: string; name: string; risk: string; minAmount: number; note: string };
 
 type Page =
-  | "home" | "wallet" | "history" | "budgets" | "savings"
+  | "wallet" | "history" | "budgets" | "savings"
   | "loans" | "invest" | "business" | "reports" | "account";
 
 const PAGES: { id: Page; label: string; emoji: string; blurb: string }[] = [
@@ -48,7 +48,7 @@ async function post(path: string, body: unknown) {
 
 function pageFromHash(): Page {
   const h = window.location.hash.replace("#/", "") as Page;
-  return PAGES.some((p) => p.id === h) ? h : "home";
+  return PAGES.some((p) => p.id === h) ? h : "wallet";
 }
 
 export default function App() {
@@ -201,55 +201,44 @@ export default function App() {
       </p>
       {msg && <p className="flash">{msg}</p>}
 
-      {page === "home" && (
-        <>
-          <section className="hero-aurora">
-            <span className="kick">FINBIQ · Financial intelligence</span>
-            <h1>
-              Your money. Your business.<br />
-              <em>Your financial intelligence.</em>
-            </h1>
-            <p>
-              One wallet for spending, saving and growing — guided by an AI that
-              reads your activity and speaks plainly. Bank-grade ledger underneath,
-              zero spreadsheet gymnastics on top.
-            </p>
-            <div className="cta-row">
-              <button onClick={() => go("wallet")}>Open my wallet</button>
-              <button className="ghost" onClick={() => go("savings")}>Start saving</button>
-            </div>
-            <div className="chips">
-              <div className="chip"><b>{balance === null ? "…" : fmt(balance)}</b><span>live balance</span></div>
-              <div className="chip"><b>{goals.length}</b><span>savings goals</span></div>
-              <div className="chip"><b>{points}</b><span>reward points</span></div>
-            </div>
-          </section>
-          <div className="grid">
-            {PAGES.map((p) => (
-              <button key={p.id} className="card link-card" onClick={() => go(p.id)}>
-                <div className="emoji">{p.emoji}</div>
-                <div className="v sm">{p.label} →</div>
-                <div className="d">{p.blurb}</div>
-              </button>
-            ))}
-          </div>
-          <div className="ai">
-            <h3>✦ Ask FINBIQ AI</h3>
-            {aiInsights.map((line, i) => (
-              <p key={i}>• {line}</p>
-            ))}
-          </div>
-        </>
-      )}
-
       {page === "wallet" && (
         <>
-          <h1>Wallet</h1>
+          <div className="greet">
+            <div className="avatar">{(profile?.name ?? "F").slice(0, 1).toUpperCase()}</div>
+            <div>
+              <div><b>Hi, {profile?.name ?? "there"} 👋</b></div>
+              <div className="d muted">Your money. Your business. Your financial intelligence.</div>
+            </div>
+          </div>
+
+          <div className="card balance-card">
+            <small>Total Balance</small>
+            <div className="v">{balance === null ? "…" : fmt(balance)}</div>
+            <div className="d">🎁 {points} FINBIQ Points · {health}</div>
+            <div className="balance-actions">
+              <button onClick={() => go("wallet")}>＋ Add Money</button>
+              <button onClick={() => go("history")}>🧾 History</button>
+              <button onClick={() => go("savings")}>💰 Save</button>
+            </div>
+          </div>
+
+          <div className="quick">
+            <button onClick={() => go("wallet")}><span className="qi">💸</span>Send</button>
+            <button onClick={() => go("budgets")}><span className="qi">📊</span>Budget</button>
+            <button onClick={() => go("savings")}><span className="qi">💰</span>Save</button>
+            <button onClick={() => go("loans")}><span className="qi">🏦</span>Borrow</button>
+          </div>
+
           <div className="grid">
             <div className="card">
-              <small>Available Balance</small>
-              <div className="v">{balance === null ? "…" : fmt(balance)}</div>
-              <div className="d up">live from ledger</div>
+              <small>Budget — Food · {food?.period ?? "monthly"}</small>
+              <div className="v sm">
+                {food ? `${fmt(spent)} / ${fmt(food.limit_amount)}` : "no budget"}
+              </div>
+              <div className="bar warn">
+                <i style={{ width: `${foodPct}%` }} />
+              </div>
+              <div className="d warn-t">{foodPct.toFixed(0)}% used · live spend</div>
             </div>
             <form
               className="card"
@@ -273,6 +262,24 @@ export default function App() {
                 <button type="submit">Send</button>
               </div>
             </form>
+            <div className="card">
+              <small>Recent activity</small>
+              {history.slice(0, 3).map((t) => (
+                <div className="txn" key={t.id}>
+                  <span>{fmt(t.amount)}</span>
+                  <span className="pill">{t.status}</span>
+                </div>
+              ))}
+              {!history.length && <div className="d">no transfers yet</div>}
+              <div className="d"><a href="#/history" onClick={(e) => { e.preventDefault(); go("history"); }}>View all →</a></div>
+            </div>
+          </div>
+
+          <div className="ai">
+            <h3>✦ Ask FINBIQ AI</h3>
+            {aiInsights.map((line, i) => (
+              <p key={i}>• {line}</p>
+            ))}
           </div>
         </>
       )}
@@ -518,9 +525,9 @@ export default function App() {
 }
 
 function TabBar({ page, go }: { page: string; go: (p: Page) => void }) {
-  const tabs: Page[] = ["home", "wallet", "history", "savings", "account"];
-  const icons: Record<string, string> = { home: "🏠", wallet: "👛", history: "🧾", savings: "💰", account: "👤" };
-  const labels: Record<string, string> = { home: "Home", wallet: "Wallet", history: "History", savings: "Save", account: "Me" };
+  const tabs: Page[] = ["wallet", "history", "savings", "business", "account"];
+  const icons: Record<string, string> = { wallet: "👛", history: "🧾", savings: "💰", business: "🏢", account: "👤" };
+  const labels: Record<string, string> = { wallet: "Wallet", history: "History", savings: "Save", business: "Biz", account: "Me" };
   return (
     <nav className="tabbar">
       {tabs.map((t) => (
