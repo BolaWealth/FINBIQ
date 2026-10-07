@@ -204,7 +204,7 @@ button.active {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--gold));
   color: #fff;
   display: flex;
   align-items: center;
@@ -213,22 +213,22 @@ button.active {
   font-size: 18px;
 }
 .balance-card {
-  background: linear-gradient(135deg, #007a3d, #00a651 65%, #00c25e);
+  background: linear-gradient(135deg, #2e1065, #6d28d9 60%, #8b5cf6);
   color: #fff;
-  border: 0;
+  border: 1px solid var(--gold);
   border-radius: 20px;
   padding: 22px;
   margin-bottom: 12px;
 }
 .balance-card small {
-  color: #d1fae5;
+  color: var(--gold-hi);
 }
 .balance-card .v {
   color: #fff;
   font-size: 32px;
 }
 .balance-card .d {
-  color: #d1fae5;
+  color: #e9e2f5;
 }
 .balance-actions {
   display: flex;
@@ -237,9 +237,9 @@ button.active {
 }
 .balance-actions button {
   flex: 1;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  color: #fff;
+  background: var(--gold);
+  border: 1px solid var(--gold-hi);
+  color: #2a1a05;
   border-radius: 12px;
   padding: 10px;
 }
