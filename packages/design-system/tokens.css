@@ -1,23 +1,24 @@
-/* FINBIQ Design Tokens v0.2.0 — deep purple + white. Generated from tokens.json. */
+/* FINBIQ Design Tokens v0.3.0 — OPay style: green + white. Generated from tokens.json. */
 :root {
-  --bg: #ffffff;
-  --bg2: #f5f2ff;
+  --bg: #f4f6f5;
+  --bg2: #ffffff;
   --card: #ffffff;
-  --card2: #f7f4ff;
-  --border: #e3ddf5;
-  --text: #221c3a;
-  --muted: #6f6690;
-  --accent: #5b21b6;
-  --accent2: #16a34a;
-  --info: #7c3aed;
+  --card2: #f9faf9;
+  --border: #e5e9e6;
+  --text: #1a1a1a;
+  --muted: #6b7280;
+  --accent: #00a651;
+  --accent-dark: #007a3d;
+  --accent2: #00a651;
+  --info: #00a651;
   --warn: #d97706;
   --warn2: #ea580c;
   --danger: #dc2626;
-  --aiBorder: #c4b5fd;
-  --aiBg1: #ede9fe;
+  --aiBorder: #bbf7d0;
+  --aiBg1: #f0fdf4;
   --aiBg2: #ffffff;
-  --aiText: #4c1d95;
-  --track: #efeafb;
+  --aiText: #14532d;
+  --track: #e5e9e6;
   --success-bg: #dcfce7;
   --radius-sm: 10px;
   --radius-md: 16px;

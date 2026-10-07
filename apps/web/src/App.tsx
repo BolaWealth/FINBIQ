@@ -203,33 +203,45 @@ export default function App() {
 
       {page === "home" && (
         <>
-          <section className="hero">
-            <h1>Your money. Your business.<br />Your financial intelligence.</h1>
-            <p>
-              One wallet for spending, saving, budgeting and growing — with an AI assistant
-              that turns your activity into plain-language guidance. No bank queues, no
-              spreadsheet gymnastics.
-            </p>
-            <div className="cta-row">
-              <button onClick={() => go("wallet")}>Open my wallet</button>
-              <button className="ghost" onClick={() => go("savings")}>Start saving</button>
+          <div className="greet">
+            <div className="avatar">{(profile?.name ?? "F").slice(0, 1).toUpperCase()}</div>
+            <div>
+              <div><b>Hi, {profile?.name ?? "there"} 👋</b></div>
+              <div className="d muted">Your money. Your business. Your financial intelligence.</div>
             </div>
-            <div className="hero-stats">
-              <div><b>{balance === null ? "…" : fmt(balance)}</b><span>live demo balance</span></div>
-              <div><b>{goals.length}</b><span>savings goals</span></div>
-              <div><b>{points}</b><span>reward points</span></div>
-            </div>
-          </section>
-          <div className="grid">
-            {PAGES.map((p) => (
-              <button key={p.id} className="card link-card" onClick={() => go(p.id)}>
-                <div className="emoji">{p.emoji}</div>
-                <div className="v sm">{p.label} →</div>
-                <div className="d">{p.blurb}</div>
-              </button>
-            ))}
           </div>
-          <div className="ai">
+
+          <div className="card balance-card">
+            <small>Total Balance</small>
+            <div className="v">{balance === null ? "…" : fmt(balance)}</div>
+            <div className="d">🎁 {points} FINBIQ Points · {health}</div>
+            <div className="balance-actions">
+              <button onClick={() => go("wallet")}>＋ Add Money</button>
+              <button onClick={() => go("wallet")}>⇄ Transfer</button>
+              <button onClick={() => go("history")}>🧾 History</button>
+            </div>
+          </div>
+
+          <div className="quick">
+            <button onClick={() => go("wallet")}><span className="qi">💸</span>Send</button>
+            <button onClick={() => go("budgets")}><span className="qi">📊</span>Budget</button>
+            <button onClick={() => go("savings")}><span className="qi">💰</span>Save</button>
+            <button onClick={() => go("loans")}><span className="qi">🏦</span>Borrow</button>
+          </div>
+
+          <div className="card">
+            <small>Financial Services</small>
+            <div className="services" style={{ marginTop: 10 }}>
+              {PAGES.filter((p) => p.id !== "account").map((p) => (
+                <button key={p.id} className="card svc" onClick={() => go(p.id)}>
+                  <div className="emoji">{p.emoji}</div>
+                  <div className="v sm">{p.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="ai" style={{ marginTop: 12 }}>
             <h3>✦ Ask FINBIQ AI</h3>
             {aiInsights.map((line, i) => (
               <p key={i}>• {line}</p>
@@ -508,6 +520,23 @@ export default function App() {
           )}
         </>
       )}
+      <TabBar page={page} go={go} />
     </main>
+  );
+}
+
+function TabBar({ page, go }: { page: string; go: (p: Page) => void }) {
+  const tabs: Page[] = ["home", "wallet", "history", "savings", "account"];
+  const icons: Record<string, string> = { home: "🏠", wallet: "👛", history: "🧾", savings: "💰", account: "👤" };
+  const labels: Record<string, string> = { home: "Home", wallet: "Wallet", history: "History", savings: "Save", account: "Me" };
+  return (
+    <nav className="tabbar">
+      {tabs.map((t) => (
+        <button key={t} className={page === t ? "on" : ""} onClick={() => go(t)}>
+          <span className="ti">{icons[t]}</span>
+          {labels[t]}
+        </button>
+      ))}
+    </nav>
   );
 }

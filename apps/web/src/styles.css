@@ -7,8 +7,9 @@ body {
   margin: 0;
 }
 .page {
-  padding: 28px;
+  padding: 16px 16px 96px;
   max-width: 1100px;
+  margin: 0 auto;
 }
 .muted {
   color: var(--muted);
@@ -35,14 +36,21 @@ button.active {
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 .card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .card small {
   color: var(--muted);
@@ -76,12 +84,11 @@ button.active {
   border-radius: 99px;
   overflow: hidden;
   margin-top: 8px;
-  border: 1px solid var(--border);
 }
 .bar i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--info));
+  background: var(--accent);
 }
 .bar.warn i {
   background: linear-gradient(90deg, var(--warn), var(--warn2));
@@ -100,13 +107,7 @@ button.active {
   font-size: 13px;
   color: var(--aiText);
   line-height: 1.5;
-  margin: 0;
-}
-.grid2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 14px;
+  margin: 0 0 6px;
 }
 .row-form {
   display: flex;
@@ -115,7 +116,7 @@ button.active {
 }
 .row-form input {
   flex: 1;
-  background: var(--track);
+  background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text);
@@ -129,13 +130,35 @@ button.active {
   padding: 10px 14px;
   font-size: 13px;
 }
+.txn {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.txn:last-child {
+  border: 0;
+}
+.pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.txn.clickable {
+  cursor: pointer;
+}
+
+/* OPay-style top bar */
 .topnav {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
 .brand {
@@ -169,94 +192,153 @@ button.active {
   background: var(--accent);
   color: #fff;
 }
-.hero {
-  background: linear-gradient(135deg, #2e1065, #5b21b6 60%, #7c3aed);
+
+/* OPay-style greeting + balance card */
+.greet {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 12px;
+}
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
   color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+}
+.balance-card {
+  background: linear-gradient(135deg, #007a3d, #00a651 65%, #00c25e);
+  color: #fff;
+  border: 0;
   border-radius: 20px;
-  padding: 40px 32px;
-  margin-bottom: 16px;
+  padding: 22px;
+  margin-bottom: 12px;
 }
-.hero h1 {
-  font-size: 34px;
-  line-height: 1.2;
-  margin: 0 0 12px;
+.balance-card small {
+  color: #d1fae5;
 }
-.hero p {
-  font-size: 15px;
-  line-height: 1.6;
-  max-width: 560px;
-  color: #ede9fe;
-  margin: 0 0 20px;
+.balance-card .v {
+  color: #fff;
+  font-size: 32px;
 }
-.cta-row {
+.balance-card .d {
+  color: #d1fae5;
+}
+.balance-actions {
   display: flex;
   gap: 10px;
-  margin-bottom: 24px;
+  margin-top: 14px;
 }
-.cta-row button {
-  background: #fff;
-  color: #5b21b6;
-  border: 0;
-}
-.cta-row button.ghost {
-  background: transparent;
+.balance-actions button {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   color: #fff;
-  border: 1px solid #c4b5fd;
+  border-radius: 12px;
+  padding: 10px;
 }
-.hero-stats {
+
+/* OPay-style quick actions */
+.quick {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.quick button {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 6px;
   display: flex;
-  gap: 32px;
-}
-.hero-stats b {
-  display: block;
-  font-size: 22px;
-}
-.hero-stats span {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
   font-size: 12px;
-  color: #c4b5fd;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
-.link-card {
-  text-align: left;
+.quick .qi {
+  font-size: 24px;
+}
+
+/* Services grid */
+.services {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.svc {
+  text-align: center;
   cursor: pointer;
   color: var(--text);
   font-family: inherit;
 }
-.link-card:hover {
+.svc:hover {
   border-color: var(--accent);
 }
-.emoji {
-  font-size: 28px;
-  margin-bottom: 8px;
+.svc .emoji {
+  font-size: 26px;
+  margin-bottom: 6px;
 }
-.txn.clickable {
-  cursor: pointer;
+.svc .v.sm {
+  font-size: 14px;
 }
-.txn.clickable:hover span:first-child {
+
+/* Bottom tab bar (mobile) */
+.tabbar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid var(--border);
+  padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+  z-index: 20;
+}
+.tabbar button {
+  flex: 1;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+}
+.tabbar button.on {
   color: var(--accent);
 }
-.txn {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
+.tabbar .ti {
+  font-size: 22px;
 }
-.txn:last-child {
-  border: 0;
-}
-.pill {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 99px;
-  background: var(--track);
-  border: 1px solid var(--border);
-  color: var(--muted);
-}
+
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
   }
   .grid2 {
     grid-template-columns: 1fr;
+  }
+  .links {
+    display: none;
+  }
+  .tabbar {
+    display: flex;
+  }
+  .quick {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .services {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
