@@ -191,3 +191,80 @@ export async function getProfile(userId: string) {
   const w = await pool.query(`SELECT id, currency FROM wallets WHERE owner_user_id = $1`, [userId]);
   return { ...u.rows[0], wallets: w.rows };
 }
+
+// ---- Deferred-list fix: business backend (tables already in schema.sql) ----
+
+export async function createBusiness(ownerUserId: string, name: string) {
+  if (!name) throw new Error("name is required");
+  const b = await pool.query(`INSERT INTO businesses (owner_user_id, name) VALUES ($1,$2) RETURNING id`, [ownerUserId, name]);
+  await pool.query(`INSERT INTO business_members (business_id, user_id, role) VALUES ($1,$2,'owner')`, [b.rows[0].id, ownerUserId]);
+  return { id: b.rows[0].id, name };
+}
+
+export async function listBusinesses(ownerUserId: string) {
+  const r = await pool.query(
+    `SELECT b.id, b.name FROM businesses b JOIN business_members m ON m.business_id = b.id WHERE m.user_id = $1`,
+    [ownerUserId]
+  );
+  return r.rows;
+}
+
+export async function createBusinessWallet(ownerUserId: string, businessId: string, currency = "NGN") {
+  const m = await pool.query(`SELECT 1 FROM business_members WHERE business_id = $1 AND user_id = $2`, [businessId, ownerUserId]);
+  if (!m.rowCount) throw new Error("not a member of this business");
+  const w = await pool.query(`INSERT INTO wallets (owner_user_id, business_id, currency) VALUES ($1,$2,$3) RETURNING id`, [
+    ownerUserId,
+    businessId,
+    currency,
+  ]);
+  return { id: w.rows[0].id, businessId };
+}
+
+export async function businessSummary(businessId: string) {
+  const bal = await pool.query(
+    `SELECT COALESCE(SUM(l.credit - l.debit),0) AS balance FROM wallets w
+     LEFT JOIN journal_lines l ON l.wallet_id = w.id WHERE w.business_id = $1`,
+    [businessId]
+  );
+  const budgets = await pool.query(`SELECT count(*) AS n FROM budgets WHERE business_id = $1`, [businessId]);
+  const pending = await pool.query(
+    `SELECT t.id, t.amount, t.status, t.created_at FROM transfers t
+     JOIN wallets w ON w.id = t.from_wallet_id
+     WHERE w.business_id = $1 AND t.status IN ('pending','processing') ORDER BY t.created_at DESC LIMIT 20`,
+    [businessId]
+  );
+  return { balance: bal.rows[0].balance, budgets: Number(budgets.rows[0].n), upcoming: pending.rows };
+}
+
+// ---- Deferred-list fix: read-only previews (estimates/education, no live products) ----
+
+export async function financingEstimate(ownerUserId: string) {
+  const s = await financeSummary(ownerUserId);
+  const monthlyInflow = Number(s.inflow);
+  // Conservative local rule: up to 3x avg monthly inflow, capped; ESTIMATE ONLY.
+  const maxEligible = Math.min(monthlyInflow * 3, 3000000);
+  return {
+    estimate: true,
+    maxEligible,
+    currency: "NGN",
+    basis: { monthlyInflow, monthlyOutflow: Number(s.outflow) },
+    disclaimer:
+      "Estimate only — not an offer. Live financing requires a lending license/partner, KYC/AML and explicit user authorization (PRD Sec.16-17).",
+  };
+}
+
+const INVESTMENT_CATALOG = [
+  { id: "tbills", name: "Treasury Bills (education)", risk: "low", minAmount: 100000, note: "Short-term government securities." },
+  { id: "mmf", name: "Money Market Fund (education)", risk: "low-medium", minAmount: 5000, note: "Pooled low-risk instruments." },
+  { id: "bonds", name: "FGN Bonds (education)", risk: "medium", minAmount: 50000, note: "Longer-term government debt." },
+  { id: "equities", name: "Equities (education)", risk: "high", minAmount: 10000, note: "Stock market exposure; capital at risk." },
+];
+
+export async function investmentCatalog() {
+  return {
+    educationOnly: true,
+    items: INVESTMENT_CATALOG,
+    disclaimer:
+      "Education only — execution and holdings require a licensed investment provider (PRD Sec.18).",
+  };
+}

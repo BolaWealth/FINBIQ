@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog } from "./queries.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
@@ -60,10 +60,21 @@ createServer(async (req, res) => {
 
   if (url.pathname.startsWith("/api/auth/")) {
     try {
-      const res2 = await auth.handler(new Request(url, { method: req.method, headers: req.headers as never }));
+      const rawBody = req.method !== "GET" && req.method !== "HEAD" ? await readBody(req) : undefined;
+      const fwdHeaders = { ...(req.headers as Record<string, string>) };
+      delete fwdHeaders["content-length"];
+      const res2 = await auth.handler(
+        new Request(url, {
+          method: req.method,
+          headers: fwdHeaders as never,
+          body: rawBody,
+          duplex: "half",
+        } as never)
+      );
       res.writeHead(res2.status, Object.fromEntries(res2.headers.entries()));
       return res.end(await res2.text());
     } catch (e) {
+      console.error("[auth bridge]", e);
       return json(res, 500, { error: "auth_error" });
     }
   }
@@ -211,6 +222,54 @@ createServer(async (req, res) => {
     } catch (e) {
       return json(res, 404, { error: e instanceof Error ? e.message : "not_found" });
     }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/businesses") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createBusiness(b.ownerUserId, b.name);
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "business_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/businesses") {
+    try {
+      return json(res, 200, await listBusinesses(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "business_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/v1/businesses/") && url.pathname.endsWith("/wallet")) {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createBusinessWallet(b.ownerUserId, url.pathname.split("/")[3], b.currency ?? "NGN");
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "wallet_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/v1/businesses/") && url.pathname.endsWith("/summary")) {
+    try {
+      return json(res, 200, await businessSummary(url.pathname.split("/")[3]));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "summary_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/financing/estimate") {
+    try {
+      return json(res, 200, await financingEstimate(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "estimate_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/investments") {
+    return json(res, 200, await investmentCatalog());
   }
 
   return json(res, 404, { error: "not_found" });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "./styles.css";
+import AuthPanel from "./AuthPanel";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
 const OWNER = "demo-user-1";
@@ -11,6 +12,9 @@ type Goal = { id: string; name: string; target_amount: string; saved: string };
 type Notice = { id: string; type: string; title: string; body: string; created_at: string };
 type Transfer = { id: string; amount: string; currency: string; status: string; created_at: string };
 type Summary = { totalBalance: number; inflow: string; outflow: string; saved: string; savingsTarget: string };
+type Biz = { id: string; name: string };
+type BizSummary = { balance: string; budgets: number; upcoming: { id: string; amount: string; status: string }[] };
+type InvestItem = { id: string; name: string; risk: string; minAmount: number; note: string };
 
 const fmt = (n: string | number) =>
   "\u20A6" + Number(n).toLocaleString("en-NG", { maximumFractionDigits: 0 });
@@ -39,7 +43,15 @@ export default function App() {
   const [aiInsights, setAiInsights] = useState<string[]>([]);
   const [points, setPoints] = useState(0);
   const [profile, setProfile] = useState<{ name: string; email: string } | null>(null);
+  const [uid, setUid] = useState<string | null>(null);
+  const [bizList, setBizList] = useState<Biz[]>([]);
+  const [biz, setBiz] = useState<BizSummary | null>(null);
+  const [bizId, setBizId] = useState("");
+  const [estimate, setEstimate] = useState<{ maxEligible: number; disclaimer: string } | null>(null);
+  const [invest, setInvest] = useState<InvestItem[]>([]);
   const [msg, setMsg] = useState("");
+
+  const owner = uid ?? OWNER;
 
   const refresh = useCallback(() => {
     fetch(`${API}/health`)
@@ -50,43 +62,66 @@ export default function App() {
       .then((r) => r.json())
       .then((j) => setBalance(j.balance))
       .catch(() => setBalance(null));
-    fetch(`${API}/v1/budgets?owner=${OWNER}`)
+    fetch(`${API}/v1/budgets?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setBudgets(j))
       .catch(() => {});
-    fetch(`${API}/v1/savings/goals?owner=${OWNER}`)
+    fetch(`${API}/v1/savings/goals?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setGoals(j))
       .catch(() => {});
-    fetch(`${API}/v1/budgets/spend?owner=${OWNER}`)
+    fetch(`${API}/v1/budgets/spend?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => setSpent(j.spent ?? "0"))
       .catch(() => {});
-    fetch(`${API}/v1/notifications?owner=${OWNER}`)
+    fetch(`${API}/v1/notifications?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setNotices(j))
       .catch(() => {});
-    fetch(`${API}/v1/transfers?owner=${OWNER}`)
+    fetch(`${API}/v1/transfers?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setHistory(j))
       .catch(() => {});
-    fetch(`${API}/v1/reports/summary?owner=${OWNER}`)
+    fetch(`${API}/v1/reports/summary?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => j.totalBalance !== undefined && setSummary(j))
       .catch(() => {});
-    fetch(`${API}/v1/insights?owner=${OWNER}`)
+    fetch(`${API}/v1/insights?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setAiInsights(j))
       .catch(() => {});
-    fetch(`${API}/v1/rewards?owner=${OWNER}`)
+    fetch(`${API}/v1/rewards?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => setPoints(Number(j.total ?? 0)))
       .catch(() => {});
-    fetch(`${API}/v1/profile?owner=${OWNER}`)
+    fetch(`${API}/v1/profile?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => j.id && setProfile(j))
+      .catch(() => setProfile(null));
+    fetch(`${API}/v1/businesses?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (Array.isArray(j)) {
+          setBizList(j);
+          if (j[0] && !bizId) {
+            setBizId(j[0].id);
+            fetch(`${API}/v1/businesses/${j[0].id}/summary`)
+              .then((r) => r.json())
+              .then((s) => s.balance !== undefined && setBiz(s))
+              .catch(() => {});
+          }
+        }
+      })
       .catch(() => {});
-  }, []);
+    fetch(`${API}/v1/financing/estimate?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => j.estimate && setEstimate(j))
+      .catch(() => {});
+    fetch(`${API}/v1/investments`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j.items) && setInvest(j.items))
+      .catch(() => {});
+  }, [owner, bizId]);
 
   useEffect(() => {
     refresh();
@@ -183,7 +218,7 @@ export default function App() {
                       fromWalletId: WALLET_A,
                       toWalletId: WALLET_B,
                       amount: amt,
-                      createdBy: OWNER,
+                      createdBy: owner,
                     }),
                   `Transferred ${fmt(amt)}`
                 );
@@ -204,7 +239,7 @@ export default function App() {
                 run(
                   () =>
                     post("/v1/budgets", {
-                      ownerUserId: OWNER,
+                      ownerUserId: owner,
                       category: (f.get("category") as string) || "Food",
                       limitAmount: f.get("limit") as string,
                     }),
@@ -259,28 +294,80 @@ export default function App() {
               <p key={i}>• {line}</p>
             ))}
           </div>
+
+          <div className="grid2">
+            <div className="card">
+              <small>Financing — estimate only</small>
+              <div className="v sm">{estimate ? fmt(estimate.maxEligible) + " max" : "…"}</div>
+              <div className="d">{estimate?.disclaimer ?? ""}</div>
+            </div>
+            <div className="card">
+              <small>Investments — education only</small>
+              {invest.map((it) => (
+                <div className="txn" key={it.id}>
+                  <span>{it.name} <span className="pill">{it.risk}</span></span>
+                  <span className="d">{fmt(it.minAmount)} min</span>
+                </div>
+              ))}
+              <div className="d">Execution needs a licensed provider (PRD Sec.18).</div>
+            </div>
+          </div>
+
+          <AuthPanel onUser={setUid} />
         </>
       ) : (
         <>
           <div className="grid">
             <div className="card">
               <small>Business Balance</small>
-              <div className="v">{balance === null ? "\u2026" : fmt(balance)}</div>
-              <div className="d up">demo wallet</div>
+              <div className="v">{biz ? fmt(biz.balance) : balance === null ? "…" : fmt(balance)}</div>
+              <div className="d up">{biz ? "live business ledger" : "demo wallet (create a business below)"}</div>
             </div>
             <div className="card">
-              <small>Budgets</small>
-              <div className="v sm">{budgets.length} active</div>
-              <div className="d">supplier + payroll queues land in the business milestone</div>
+              <small>Business budgets</small>
+              <div className="v sm">{biz ? biz.budgets : budgets.length} active</div>
+              <div className="d">upcoming payments below</div>
+            </div>
+            <div className="card">
+              <small>Upcoming payments</small>
+              {(biz?.upcoming ?? []).slice(0, 5).map((t) => (
+                <div className="txn" key={t.id}>
+                  <span>{fmt(t.amount)}</span>
+                  <span className="pill">{t.status}</span>
+                </div>
+              ))}
+              {!biz?.upcoming?.length && <div className="d">none queued</div>}
             </div>
           </div>
+          <form
+            className="card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = new FormData(e.currentTarget).get("name") as string;
+              run(async () => {
+                const b = await post("/v1/businesses", { ownerUserId: owner, name });
+                await post(`/v1/businesses/${(b as { id: string }).id}/wallet`, { ownerUserId: owner });
+                const s = await fetch(`${API}/v1/businesses/${(b as { id: string }).id}/summary`).then((r) => r.json());
+                setBizId((b as { id: string }).id);
+                setBiz(s);
+              }, `Business "${name}" created with wallet`);
+              e.currentTarget.reset();
+            }}
+          >
+            <small>New business (real backend, local only)</small>
+            <div className="row-form">
+              <input name="name" placeholder="Business name" required />
+              <button type="submit">Create</button>
+            </div>
+            {bizList.length > 0 && <div className="d">member of: {bizList.map((b) => b.name).join(", ")}</div>}
+          </form>
           <div className="ai">
             <h3>✦ AI Business Insights</h3>
-            <p>
-              No business onboarded yet — business wallets, revenue tracking and cash-flow monitoring
-              arrive in the business-mode milestone.
-            </p>
+            {aiInsights.map((line, i) => (
+              <p key={i}>• {line}</p>
+            ))}
           </div>
+          <AuthPanel onUser={setUid} />
         </>
       )}
     </main>
