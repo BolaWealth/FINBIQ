@@ -1,10 +1,14 @@
 // FINBIQ API skeleton v0.1.0 — stdlib http only (no framework yet).
 // Routes: GET /health, ALL /api/auth/* (BetterAuth), POST /v1/transfers,
 // GET /v1/wallets/:id/balance, GET /v1/budgets?owner=, GET /v1/savings/goals?owner=.
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ".env") });
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification } from "./queries.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
@@ -98,6 +102,62 @@ createServer(async (req, res) => {
       return json(res, 200, await listSavingsGoals(url.searchParams.get("owner") ?? ""));
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "goals_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/budgets") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createBudget(b.ownerUserId, b.category, String(b.limitAmount ?? ""), b.period ?? "monthly");
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "budget_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/budgets/spend") {
+    try {
+      return json(res, 200, await budgetSpend(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "spend_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/savings/goals") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createSavingsGoal(b.ownerUserId, b.name, String(b.targetAmount ?? ""), b.targetDate ?? null);
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "goal_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/savings/contribute") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await contributeToGoal(b.goalId, String(b.amount ?? ""));
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "contribute_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/notifications") {
+    try {
+      return json(res, 200, await listNotifications(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "notifications_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/notifications") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createNotification(b.ownerUserId, b.type, b.title, b.body ?? "");
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "notify_failed" });
     }
   }
 
