@@ -1727,3 +1727,50 @@ Its core differentiator is not simply providing financial services.
 
 This version is structured so it can serve as a **master product document** for product/design/engineering discussions, while leaving regulated financial products flexible enough to be implemented through the appropriate licensed entities or partners.
 
+---
+
+# **43\. Local Execution (current implementation)**
+
+Both the app and the database run on the owner's local Windows device. No cloud subscription is used.
+
+## **App**
+* Runtime: Node 22 LTS + pnpm 12 workspaces (`pnpm-workspace.yaml`).
+* API: `services/api` (TypeScript, `tsx`), `http://localhost:4000` — health, auth (`/api/auth/*`), ledger, budgets, savings, notifications, reports, insights, rewards, business, financing estimate, investments catalog, metrics.
+* Web: `apps/web` (Vite 5 + React 18), `http://localhost:5173` — Personal/Business dashboards, auth panel, 2FA, forms, history, reports, metrics.
+* Start: `powershell -ExecutionPolicy Bypass -File .\start-local.ps1 -NoDocker` (Docker path documented for Win10 22H2+ via `docker-compose.yml`).
+* No Vercel, no Supabase, no Neon, no Docker on this machine (Windows 10 1909 incompatible with Docker Desktop).
+
+## **Database**
+* PostgreSQL 17 native (EDB installer, service `postgresql-x64-17`, port `5432`).
+* Role + database: `finbiq` / `finbiq` (dev password in gitignored `.env` only).
+* Schema: `services/api/db/schema.sql` (BetterAuth tables + double-entry ledger + app tables), migrations `migrate_002.sql` (Sec.8 statuses), `migrate_003.sql` (2FA), `migrate_004.sql` (account notice type), seed `seed.sql` (demo balance ₦842,500).
+
+---
+
+# **44\. Accounts & Files Handling**
+
+## **Accounts**
+* Demo: `demo-user-1` (seeded wallet, Food budget, Rent goal) — preselected in web until sign-in.
+* Real: BetterAuth email/password signup auto-provisions wallet + Food/Salary categories + welcome notice; TOTP 2FA available offline; password reset via API-console token (no SMTP locally).
+* `BolaWealth` GitHub account owns `https://github.com/BolaWealth/FINBIQ` (`main` branch).
+
+## **Files & secrets**
+* `.env` (root) + `apps/web/.env`: real secrets, gitignored, never committed. Templates: `.env.example`, `apps/web/.env.example`.
+* R2 keys stay empty until the owner creates bucket `finbiq-dev` + token in Cloudflare and fills `.env`.
+* `pnpm-lock.yaml` tracked for reproducible installs. `node_modules/`, `*.log`, Office lock files (`~$*`) ignored.
+* Canonical PRD: `FINBIQ — Product Requirements Document NEW.md` (this file). The old `.docx` was removed; its history remains in git.
+
+---
+
+# **45\. Tool Review Rationale**
+
+| Decision | Chosen | Rejected | Why |
+| ----- | ----- | ----- | ----- |
+| Database | Local Postgres 17 | Neon/Supabase (subscription), Docker PG (needs Win 22H2+) | $0, works offline, full data control; SQL is portable to Neon later with zero code change |
+| Auth | BetterAuth 1.7 (self-hosted, PG-backed) | Supabase Auth, Clerk/Auth0 (subscription + external dependency) | No fees, sessions in our DB, TOTP 2FA works offline; email verification deferred only for lack of SMTP |
+| Storage | Cloudflare R2 (S3 API, presigned URLs) | Supabase Storage | S3-compatible, near-zero egress fees, decoupled from DB host |
+| Hosting | Local Node (API :4000 + Vite :5173) | Vercel | No lock-in, no cost, runs on Win 1909; `docker-compose.yml` ready for container move |
+| Ledger | Double-entry journal, balances derived | Stored balance column | Auditability (PRD Sec.29), imbalance-proof; idempotency keys prevent double-posts |
+| AI (current) | Rule-based insights from live aggregates | LLM API | Every figure grounded (PRD Sec.36 anti-hallucination); LLM can be added later behind the same `/v1/insights` contract |
+| Package manager | pnpm workspaces | npm | Disk-efficient, strict deps, workspace filters for api/web/shared |
+
