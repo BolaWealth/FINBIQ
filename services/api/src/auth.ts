@@ -16,6 +16,11 @@ export const auth = betterAuth({
     // Prod MUST set requireEmailVerification: true + SMTP (see ADR-0004).
     requireEmailVerification: false,
     autoSignIn: true,
+    sendResetPassword: async ({ user, url }) => {
+      // LOCAL ONLY: log the reset link to the API console instead of emailing.
+      // Prod MUST send this via SMTP (see ADR-0004).
+      console.log(`[password-reset] ${user.email}: ${url}`);
+    },
   },
   plugins: [twoFactor()],
   databaseHooks: {

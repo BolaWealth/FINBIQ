@@ -7,6 +7,7 @@ export default function AuthPanel({ onUser }: { onUser: (id: string | null) => v
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [showReset, setShowReset] = useState(false);
   const [totpUri, setTotpUri] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [msg, setMsg] = useState("");
@@ -76,8 +77,41 @@ export default function AuthPanel({ onUser }: { onUser: (id: string | null) => v
         <a href="#" onClick={(e) => { e.preventDefault(); setMode(mode === "signin" ? "signup" : "signin"); }}>
           {mode === "signin" ? "Sign up" : "Sign in"}
         </a>{" "}
-        · demo data uses demo-user-1 until you sign in
+        · <a href="#" onClick={(e) => { e.preventDefault(); setShowReset(!showReset); }}>Forgot password?</a>
+        {" "}· demo data uses demo-user-1 until you sign in
       </div>
+      {showReset && (
+        <form
+          className="row-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const mail = new FormData(e.currentTarget).get("email") as string;
+            const { error } = await authClient.requestPasswordReset({ email: mail, redirectTo: "/reset-password" });
+            setMsg(error ? error.message ?? "reset failed" : "Reset link printed to the API console (no SMTP locally). Paste the token below with a new password.");
+          }}
+        >
+          <input name="email" placeholder="Email for reset link" required />
+          <button type="submit">Send reset</button>
+        </form>
+      )}
+      {showReset && (
+        <form
+          className="row-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            const { error } = await authClient.resetPassword({
+              newPassword: f.get("newPassword") as string,
+              token: f.get("token") as string,
+            });
+            setMsg(error ? error.message ?? "reset failed" : "Password updated — sign in with it.");
+          }}
+        >
+          <input name="token" placeholder="Token from API console link" required />
+          <input name="newPassword" placeholder="New password" type="password" required />
+          <button type="submit">Set password</button>
+        </form>
+      )}
     </div>
   );
 }
