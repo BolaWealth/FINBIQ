@@ -203,45 +203,37 @@ export default function App() {
 
       {page === "home" && (
         <>
-          <div className="greet">
-            <div className="avatar">{(profile?.name ?? "F").slice(0, 1).toUpperCase()}</div>
-            <div>
-              <div><b>Hi, {profile?.name ?? "there"} 👋</b></div>
-              <div className="d muted">Your money. Your business. Your financial intelligence.</div>
+          <section className="hero-aurora">
+            <span className="kick">FINBIQ · Financial intelligence</span>
+            <h1>
+              Your money. Your business.<br />
+              <em>Your financial intelligence.</em>
+            </h1>
+            <p>
+              One wallet for spending, saving and growing — guided by an AI that
+              reads your activity and speaks plainly. Bank-grade ledger underneath,
+              zero spreadsheet gymnastics on top.
+            </p>
+            <div className="cta-row">
+              <button onClick={() => go("wallet")}>Open my wallet</button>
+              <button className="ghost" onClick={() => go("savings")}>Start saving</button>
             </div>
-          </div>
-
-          <div className="card balance-card">
-            <small>Total Balance</small>
-            <div className="v">{balance === null ? "…" : fmt(balance)}</div>
-            <div className="d">🎁 {points} FINBIQ Points · {health}</div>
-            <div className="balance-actions">
-              <button onClick={() => go("wallet")}>＋ Add Money</button>
-              <button onClick={() => go("wallet")}>⇄ Transfer</button>
-              <button onClick={() => go("history")}>🧾 History</button>
+            <div className="chips">
+              <div className="chip"><b>{balance === null ? "…" : fmt(balance)}</b><span>live balance</span></div>
+              <div className="chip"><b>{goals.length}</b><span>savings goals</span></div>
+              <div className="chip"><b>{points}</b><span>reward points</span></div>
             </div>
+          </section>
+          <div className="grid">
+            {PAGES.map((p) => (
+              <button key={p.id} className="card link-card" onClick={() => go(p.id)}>
+                <div className="emoji">{p.emoji}</div>
+                <div className="v sm">{p.label} →</div>
+                <div className="d">{p.blurb}</div>
+              </button>
+            ))}
           </div>
-
-          <div className="quick">
-            <button onClick={() => go("wallet")}><span className="qi">💸</span>Send</button>
-            <button onClick={() => go("budgets")}><span className="qi">📊</span>Budget</button>
-            <button onClick={() => go("savings")}><span className="qi">💰</span>Save</button>
-            <button onClick={() => go("loans")}><span className="qi">🏦</span>Borrow</button>
-          </div>
-
-          <div className="card">
-            <small>Financial Services</small>
-            <div className="services" style={{ marginTop: 10 }}>
-              {PAGES.filter((p) => p.id !== "account").map((p) => (
-                <button key={p.id} className="card svc" onClick={() => go(p.id)}>
-                  <div className="emoji">{p.emoji}</div>
-                  <div className="v sm">{p.label}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="ai" style={{ marginTop: 12 }}>
+          <div className="ai">
             <h3>✦ Ask FINBIQ AI</h3>
             {aiInsights.map((line, i) => (
               <p key={i}>• {line}</p>

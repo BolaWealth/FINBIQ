@@ -1,10 +1,14 @@
 @import "../../../packages/design-system/tokens.css";
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(900px 400px at 85% -5%, rgba(139, 92, 246, 0.22), transparent 60%),
+    radial-gradient(700px 380px at 5% 10%, rgba(45, 212, 191, 0.12), transparent 60%),
+    var(--bg);
   color: var(--text);
   font-family: var(--font-family);
   margin: 0;
+  min-height: 100vh;
 }
 .page {
   padding: 16px 16px 96px;
@@ -20,18 +24,18 @@ body {
   margin: 16px 0;
 }
 button {
-  background: var(--bg2);
+  background: var(--card2);
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 9px 16px;
   font-weight: 700;
   cursor: pointer;
 }
 button.active {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #6d28d9);
   color: #fff;
-  border-color: var(--accent);
+  border-color: transparent;
 }
 .grid {
   display: grid;
@@ -46,11 +50,11 @@ button.active {
   margin-bottom: 12px;
 }
 .card {
-  background: var(--card);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)), var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 8px 28px rgba(2, 6, 23, 0.45);
 }
 .card small {
   color: var(--muted);
@@ -88,7 +92,7 @@ button.active {
 .bar i {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: linear-gradient(90deg, var(--accent2), var(--info));
 }
 .bar.warn i {
   background: linear-gradient(90deg, var(--warn), var(--warn2));
@@ -116,7 +120,7 @@ button.active {
 }
 .row-form input {
   flex: 1;
-  background: var(--bg2);
+  background: #0a0f26;
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text);
@@ -144,7 +148,7 @@ button.active {
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 99px;
-  background: var(--bg2);
+  background: #0a0f26;
   border: 1px solid var(--border);
   color: var(--muted);
 }
@@ -152,7 +156,7 @@ button.active {
   cursor: pointer;
 }
 
-/* OPay-style top bar */
+/* Brand bar */
 .topnav {
   display: flex;
   align-items: center;
@@ -166,9 +170,13 @@ button.active {
   font-size: 22px;
   text-decoration: none;
   color: var(--text);
+  letter-spacing: 0.5px;
 }
 .brand span {
-  color: var(--accent);
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .links {
   display: flex;
@@ -185,15 +193,121 @@ button.active {
   border-radius: 10px;
 }
 .links a:hover {
-  background: var(--bg2);
+  background: var(--card2);
   color: var(--text);
 }
 .links a.on {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), #6d28d9);
   color: #fff;
 }
 
-/* OPay-style greeting + balance card */
+/* Aurora hero */
+.hero-aurora {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 44px 32px;
+  margin-bottom: 14px;
+  border: 1px solid #3b2d7a;
+  background:
+    radial-gradient(420px 220px at 80% 10%, rgba(245, 179, 1, 0.28), transparent 60%),
+    radial-gradient(520px 260px at 15% 90%, rgba(45, 212, 191, 0.25), transparent 60%),
+    linear-gradient(135deg, #150b3d, #2b1470 55%, #0d2b33);
+}
+.hero-aurora .kick {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gold-hi);
+  border: 1px solid rgba(245, 179, 1, 0.5);
+  border-radius: 99px;
+  padding: 5px 14px;
+  margin-bottom: 14px;
+}
+.hero-aurora h1 {
+  font-size: 36px;
+  line-height: 1.15;
+  margin: 0 0 12px;
+  color: #fff;
+}
+.hero-aurora h1 em {
+  font-style: normal;
+  background: linear-gradient(90deg, #c4b5fd, var(--accent2), var(--gold-hi));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-aurora p {
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 560px;
+  color: #c9cdf2;
+  margin: 0 0 20px;
+}
+.cta-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.cta-row button {
+  background: linear-gradient(135deg, var(--gold), #d99a06);
+  color: #241300;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 14px;
+}
+.cta-row button.ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.chip {
+  background: rgba(7, 11, 26, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  border-radius: 14px;
+  padding: 10px 16px;
+}
+.chip b {
+  display: block;
+  font-size: 18px;
+  color: #fff;
+}
+.chip span {
+  font-size: 11px;
+  color: #b9c0e8;
+}
+
+/* Section cards as gallery */
+.link-card {
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+}
+.link-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  transition: transform 0.15s ease;
+}
+.emoji {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+.txn.clickable:hover span:first-child {
+  color: var(--accent);
+}
+
+/* Greeting + balance */
 .greet {
   display: flex;
   align-items: center;
@@ -204,7 +318,7 @@ button.active {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--gold));
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
   color: #fff;
   display: flex;
   align-items: center;
@@ -213,9 +327,11 @@ button.active {
   font-size: 18px;
 }
 .balance-card {
-  background: linear-gradient(135deg, #2e1065, #6d28d9 60%, #8b5cf6);
+  background:
+    radial-gradient(300px 140px at 85% 0%, rgba(245, 179, 1, 0.35), transparent 60%),
+    linear-gradient(135deg, #1b0f4d, #3b1a9e 60%, #0e4a44);
   color: #fff;
-  border: 1px solid var(--gold);
+  border: 1px solid #4c3a9e;
   border-radius: 20px;
   padding: 22px;
   margin-bottom: 12px;
@@ -228,7 +344,7 @@ button.active {
   font-size: 32px;
 }
 .balance-card .d {
-  color: #e9e2f5;
+  color: #c9cdf2;
 }
 .balance-actions {
   display: flex;
@@ -237,14 +353,12 @@ button.active {
 }
 .balance-actions button {
   flex: 1;
-  background: var(--gold);
-  border: 1px solid var(--gold-hi);
-  color: #2a1a05;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(245, 179, 1, 0.55);
+  color: var(--gold-hi);
   border-radius: 12px;
   padding: 10px;
 }
-
-/* OPay-style quick actions */
 .quick {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -262,13 +376,10 @@ button.active {
   gap: 6px;
   color: var(--text);
   font-size: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .quick .qi {
   font-size: 24px;
 }
-
-/* Services grid */
 .services {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -298,10 +409,11 @@ button.active {
   bottom: 0;
   left: 0;
   right: 0;
-  background: #fff;
+  background: rgba(13, 19, 48, 0.96);
   border-top: 1px solid var(--border);
   padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
   z-index: 20;
+  backdrop-filter: blur(8px);
 }
 .tabbar button {
   flex: 1;
@@ -316,7 +428,7 @@ button.active {
   padding: 6px;
 }
 .tabbar button.on {
-  color: var(--accent);
+  color: var(--gold-hi);
 }
 .tabbar .ti {
   font-size: 22px;
@@ -340,5 +452,8 @@ button.active {
   }
   .services {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .hero-aurora h1 {
+    font-size: 28px;
   }
 }
