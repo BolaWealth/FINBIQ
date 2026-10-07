@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile } from "./queries.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
@@ -48,8 +48,12 @@ createServer(async (req, res) => {
 </head><body><h1>FINBIQ API is running</h1><p>Machine-readable status: <a href="/health">/health</a></p>
 <p>Visual product lives at <a href="http://localhost:5173">http://localhost:5173</a></p><ul>
 <li><code>GET /health</code></li><li><code>POST /v1/transfers</code></li>
-<li><code>GET /v1/wallets/:id/balance</code></li><li><code>GET /v1/budgets?owner=</code></li>
-<li><code>GET /v1/savings/goals?owner=</code></li></ul></body></html>`;
+<li><code>GET /v1/transfers?owner=</code> + <code>/v1/transfers/:id</code></li>
+<li><code>GET /v1/wallets/:id/balance</code></li><li><code>GET /v1/budgets?owner=</code> + <code>POST /v1/budgets</code></li>
+<li><code>GET /v1/savings/goals?owner=</code> + <code>POST /v1/savings/goals</code> + <code>POST /v1/savings/contribute</code></li>
+<li><code>GET /v1/reports/summary?owner=</code></li><li><code>GET /v1/insights?owner=</code></li>
+<li><code>GET /v1/rewards?owner=</code></li><li><code>GET /v1/notifications?owner=</code></li>
+<li><code>GET /v1/profile?owner=</code></li></ul></body></html>`;
     res.writeHead(200, { "content-type": "text/html", ...cors });
     return res.end(html);
   }
@@ -158,6 +162,54 @@ createServer(async (req, res) => {
       return json(res, 201, out);
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "notify_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/transfers") {
+    try {
+      return json(res, 200, await listTransfers(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "history_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/v1/transfers/")) {
+    try {
+      return json(res, 200, await getTransfer(url.pathname.split("/")[3]));
+    } catch (e) {
+      return json(res, 404, { error: e instanceof Error ? e.message : "not_found" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/reports/summary") {
+    try {
+      return json(res, 200, await financeSummary(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "report_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/insights") {
+    try {
+      return json(res, 200, await insights(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "insights_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/rewards") {
+    try {
+      return json(res, 200, await rewardPoints(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "rewards_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/profile") {
+    try {
+      return json(res, 200, await getProfile(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 404, { error: e instanceof Error ? e.message : "not_found" });
     }
   }
 

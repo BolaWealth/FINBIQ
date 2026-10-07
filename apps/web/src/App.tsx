@@ -9,6 +9,8 @@ const WALLET_B = "22222222-2222-2222-2222-222222222222";
 type Budget = { id: string; limit_amount: string; period: string; category: string | null };
 type Goal = { id: string; name: string; target_amount: string; saved: string };
 type Notice = { id: string; type: string; title: string; body: string; created_at: string };
+type Transfer = { id: string; amount: string; currency: string; status: string; created_at: string };
+type Summary = { totalBalance: number; inflow: string; outflow: string; saved: string; savingsTarget: string };
 
 const fmt = (n: string | number) =>
   "\u20A6" + Number(n).toLocaleString("en-NG", { maximumFractionDigits: 0 });
@@ -32,6 +34,11 @@ export default function App() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [spent, setSpent] = useState("0");
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [history, setHistory] = useState<Transfer[]>([]);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [points, setPoints] = useState(0);
+  const [profile, setProfile] = useState<{ name: string; email: string } | null>(null);
   const [msg, setMsg] = useState("");
 
   const refresh = useCallback(() => {
@@ -59,6 +66,26 @@ export default function App() {
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setNotices(j))
       .catch(() => {});
+    fetch(`${API}/v1/transfers?owner=${OWNER}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setHistory(j))
+      .catch(() => {});
+    fetch(`${API}/v1/reports/summary?owner=${OWNER}`)
+      .then((r) => r.json())
+      .then((j) => j.totalBalance !== undefined && setSummary(j))
+      .catch(() => {});
+    fetch(`${API}/v1/insights?owner=${OWNER}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setAiInsights(j))
+      .catch(() => {});
+    fetch(`${API}/v1/rewards?owner=${OWNER}`)
+      .then((r) => r.json())
+      .then((j) => setPoints(Number(j.total ?? 0)))
+      .catch(() => {});
+    fetch(`${API}/v1/profile?owner=${OWNER}`)
+      .then((r) => r.json())
+      .then((j) => j.id && setProfile(j))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -82,7 +109,9 @@ export default function App() {
   return (
     <main className="page">
       <h1>FINBIQ Local</h1>
-      <p className="muted">{health}</p>
+      <p className="muted">
+        {health} · {profile ? `${profile.name} (${profile.email})` : ""} · 🎁 {points} pts
+      </p>
       <div className="toggle">
         <button className={mode === "personal" ? "active" : ""} onClick={() => setMode("personal")}>
           Personal Mode
@@ -203,12 +232,32 @@ export default function App() {
             ))}
           </div>
 
+          <div className="grid2">
+            <div className="card">
+              <small>Report — income vs expenses</small>
+              <div className="v sm">
+                {summary ? `${fmt(summary.inflow)} in / ${fmt(summary.outflow)} out` : "…"}
+              </div>
+              <div className="d">
+                {summary ? `Saved ${fmt(summary.saved)} of ${fmt(summary.savingsTarget)} target` : ""}
+              </div>
+            </div>
+            <div className="card">
+              <small>Transaction history ({history.length})</small>
+              {history.slice(0, 5).map((t) => (
+                <div className="txn" key={t.id}>
+                  <span>{fmt(t.amount)}</span>
+                  <span className="pill">{t.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="ai">
             <h3>✦ Ask FINBIQ AI</h3>
-            <p>
-              Dining spend is up 22%. Move ₦20,000 from Entertainment to Food to stay on track, and
-              auto-save ₦15,000 weekly to hit your rent goal.
-            </p>
+            {aiInsights.map((line, i) => (
+              <p key={i}>• {line}</p>
+            ))}
           </div>
         </>
       ) : (

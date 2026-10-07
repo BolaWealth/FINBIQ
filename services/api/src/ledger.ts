@@ -45,9 +45,9 @@ export async function postTransfer(t: PostTransferInput) {
       [entry.id, t.toWalletId, t.amount, t.fromWalletId]
     );
 
-    await client.query("UPDATE transfers SET status='posted', entry_id=$1 WHERE id=$2", [entry.id, transfer.id]);
+    await client.query("UPDATE transfers SET status='completed', entry_id=$1 WHERE id=$2", [entry.id, transfer.id]);
     await client.query("COMMIT");
-    return { deduped: false, id: transfer.id, status: "posted", entryId: entry.id };
+    return { deduped: false, id: transfer.id, status: "completed", entryId: entry.id };
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
