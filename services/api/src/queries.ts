@@ -218,6 +218,40 @@ export async function getProfile(userId: string) {
   return { ...u.rows[0], wallets: w.rows };
 }
 
+// Funding (Add Money): external cash/card inflow posts credit to wallet,
+// debit to the system equity wallet. Card = recorded only (no processor
+// attached locally; live cards need a licensed payments partner).
+export async function fundWallet(walletId: string, amount: string, method: string, createdBy: string | null) {
+  if (!["cash", "card"].includes(method)) throw new Error("method must be cash or card");
+  if (Number(amount) <= 0) throw new Error("amount must be > 0");
+  const w = await pool.query(`SELECT id FROM wallets WHERE id = $1`, [walletId]);
+  if (!w.rowCount) throw new Error("wallet not found");
+  const equity = "00000000-0000-0000-0000-000000000000";
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const entry = (
+      await client.query(
+        `INSERT INTO journal_entries (memo, reference_type, reference_id, created_by)
+         VALUES ($1, 'bank', $2, $3) RETURNING id`,
+        [`${method} funding`, `${method}:${Date.now()}`, createdBy]
+      )
+    ).rows[0];
+    await client.query(
+      `INSERT INTO journal_lines (entry_id, wallet_id, debit, credit)
+       VALUES ($1,$2,0,$3), ($1,$4,$3,0)`,
+      [entry.id, walletId, amount, equity]
+    );
+    await client.query("COMMIT");
+    return { entryId: entry.id, walletId, amount, method, demo: method === "card" };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 // ---- Deferred-list fix: business backend (tables already in schema.sql) ----
 
 export async function createBusiness(ownerUserId: string, name: string) {

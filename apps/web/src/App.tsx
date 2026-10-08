@@ -262,6 +262,33 @@ export default function App() {
                 <button type="submit">Send</button>
               </div>
             </form>
+            <form
+              className="card"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                const amt = f.get("fundAmount") as string;
+                const method = f.get("method") as string;
+                run(
+                  () => post("/v1/fund", { walletId: WALLET_A, amount: amt, method, createdBy: owner }),
+                  method === "card"
+                    ? `Added ${fmt(amt)} by card (recorded — no live processor attached)`
+                    : `Cash deposit of ${fmt(amt)} recorded`
+                );
+                e.currentTarget.reset();
+              }}
+            >
+              <small>Add money — cash or card</small>
+              <div className="row-form">
+                <input name="fundAmount" placeholder="Amount" inputMode="decimal" required />
+                <select name="method" defaultValue="cash">
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                </select>
+                <button type="submit">Add</button>
+              </div>
+              <div className="d">Card is recorded only until a payments partner is connected.</div>
+            </form>
             <div className="card">
               <small>Recent activity</small>
               {history.slice(0, 3).map((t) => (

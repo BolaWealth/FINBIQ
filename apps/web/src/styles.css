@@ -124,6 +124,13 @@ button.active {
   padding: 9px 12px;
   min-width: 0;
 }
+.row-form select {
+  background: var(--track);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 9px 12px;
+}
 .flash {
   background: var(--success-bg);
   border: 1px solid var(--accent2);

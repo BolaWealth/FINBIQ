@@ -38,11 +38,11 @@ export async function postTransfer(t: PostTransferInput) {
       )
     ).rows[0];
 
-    // debit receiver, credit sender: SUM(debit)=SUM(credit)=amount
+    // debit sender, credit receiver: SUM(debit)=SUM(credit)=amount
     await client.query(
       `INSERT INTO journal_lines (entry_id, wallet_id, debit, credit)
        VALUES ($1,$2,$3,0), ($1,$4,0,$3)`,
-      [entry.id, t.toWalletId, t.amount, t.fromWalletId]
+      [entry.id, t.fromWalletId, t.amount, t.toWalletId]
     );
 
     await client.query("UPDATE transfers SET status='completed', entry_id=$1 WHERE id=$2", [entry.id, transfer.id]);

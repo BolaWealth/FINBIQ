@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet } from "./queries.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
@@ -270,6 +270,16 @@ createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/v1/investments") {
     return json(res, 200, await investmentCatalog());
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/fund") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await fundWallet(b.walletId, String(b.amount ?? ""), b.method, b.createdBy ?? null);
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "fund_failed" });
+    }
   }
 
   if (req.method === "GET" && url.pathname === "/v1/metrics") {
