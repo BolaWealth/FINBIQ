@@ -1,25 +1,25 @@
-/* FINBIQ Design Tokens v0.7.0 — original dark + indigo. Generated from tokens.json. */
+/* FINBIQ Design Tokens v0.8.0 — deep purple + white. Generated from tokens.json. */
 :root {
-  --bg: #0b0f19;
-  --bg2: #111827;
-  --card: #151d2e;
-  --card2: #1a2438;
-  --border: #243150;
-  --text: #f1f5f9;
-  --muted: #94a3b8;
-  --accent: #6366f1;
-  --accent-dark: #3730a3;
-  --accent2: #22c55e;
-  --info: #22d3ee;
-  --warn: #f59e0b;
-  --warn2: #f97316;
-  --danger: #ef4444;
-  --aiBorder: #3730a3;
-  --aiBg1: #1e1b4b;
-  --aiBg2: #151d2e;
-  --aiText: #c7d2fe;
-  --track: #0b0f19;
-  --success-bg: #052e16;
+  --bg: #ffffff;
+  --bg2: #f5f2ff;
+  --card: #ffffff;
+  --card2: #f7f4ff;
+  --border: #e3ddf5;
+  --text: #221c3a;
+  --muted: #6f6690;
+  --accent: #5b21b6;
+  --accent-dark: #2e1065;
+  --accent2: #16a34a;
+  --info: #7c3aed;
+  --warn: #d97706;
+  --warn2: #ea580c;
+  --danger: #dc2626;
+  --aiBorder: #c4b5fd;
+  --aiBg1: #ede9fe;
+  --aiBg2: #ffffff;
+  --aiText: #4c1d95;
+  --track: #efeafb;
+  --success-bg: #dcfce7;
   --radius-sm: 10px;
   --radius-md: 16px;
   --radius-pill: 999px;

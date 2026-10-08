@@ -203,7 +203,7 @@ button.active {
   padding: 40px 32px;
   margin-bottom: 14px;
   border: 1px solid var(--aiBorder);
-  background: linear-gradient(135deg, #1e1b4b, #3730a3 60%, #0e7490);
+  background: linear-gradient(135deg, #2e1065, #5b21b6 60%, #7c3aed);
   color: #fff;
 }
 .hero-aurora .kick {
@@ -212,7 +212,7 @@ button.active {
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #c7d2fe;
+  color: #4c1d95;
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 99px;
   padding: 5px 14px;
@@ -232,7 +232,7 @@ button.active {
   font-size: 15px;
   line-height: 1.6;
   max-width: 560px;
-  color: #c7d2fe;
+  color: #4c1d95;
   margin: 0 0 20px;
 }
 .cta-row {
@@ -243,7 +243,7 @@ button.active {
 }
 .cta-row button {
   background: #fff;
-  color: #3730a3;
+  color: #c4b5fd;
   border: 0;
   border-radius: 10px;
   padding: 12px 22px;
@@ -272,7 +272,7 @@ button.active {
 }
 .chip span {
   font-size: 11px;
-  color: #c7d2fe;
+  color: #4c1d95;
 }
 
 /* Section cards */
@@ -310,7 +310,7 @@ button.active {
   font-size: 18px;
 }
 .balance-card {
-  background: linear-gradient(135deg, #1e1b4b, #3730a3 60%, #0e7490);
+  background: linear-gradient(135deg, #2e1065, #5b21b6 60%, #7c3aed);
   color: #fff;
   border: 1px solid var(--aiBorder);
   border-radius: 20px;
@@ -318,14 +318,14 @@ button.active {
   margin-bottom: 12px;
 }
 .balance-card small {
-  color: #c7d2fe;
+  color: #4c1d95;
 }
 .balance-card .v {
   color: #fff;
   font-size: 32px;
 }
 .balance-card .d {
-  color: #c7d2fe;
+  color: #4c1d95;
 }
 .balance-actions {
   display: flex;
