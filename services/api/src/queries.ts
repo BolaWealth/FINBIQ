@@ -181,6 +181,36 @@ export async function rewardPoints(userId: string) {
   return { total: Number(r.rows[0].total) };
 }
 
+// Grounded Q&A: snapshot is built ONLY from live ledger aggregates, then
+// answered by Gemini (or a clear fallback when no key is configured).
+export async function askFinanceQuestion(ownerUserId: string, question: string) {
+  if (!question.trim()) throw new Error("question is required");
+  const [s, spend, budgets, goals] = await Promise.all([
+    financeSummary(ownerUserId),
+    budgetSpend(ownerUserId),
+    listBudgets(ownerUserId),
+    listSavingsGoals(ownerUserId),
+  ]);
+  const snapshot = [
+    `Total balance: ${s.totalBalance}`,
+    `Money in: ${s.inflow}, money out: ${s.outflow}`,
+    `Total outflow this period: ${spend.spent}`,
+    `Budgets: ${budgets.map((b) => `${b.category ?? "?"} limit ${b.limit_amount}`).join("; ") || "none"}`,
+    `Savings: ${goals.map((g) => `${g.name} saved ${g.saved} of ${g.target_amount}`).join("; ") || "none"}`,
+  ].join("\n");
+  try {
+    const { groundedAnswer } = await import("./ai.js");
+    const answer = await groundedAnswer(snapshot, question.trim().slice(0, 500));
+    return { answer, grounded: true };
+  } catch {
+    const lines = await insights(ownerUserId);
+    return {
+      answer: `AI is offline (no Gemini key configured). What I can tell you from your data:\n- ${lines.join("\n- ")}`,
+      grounded: false,
+    };
+  }
+}
+
 export async function awardPoints(userId: string, points: number, reason: string) {
   await pool.query(`INSERT INTO rewards_points (user_id, points, reason) VALUES ($1,$2,$3)`, [userId, points, reason]);
 }

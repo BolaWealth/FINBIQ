@@ -321,6 +321,24 @@ export default function App() {
             {aiInsights.map((line, i) => (
               <p key={i}>• {line}</p>
             ))}
+            <form
+              className="row-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const q = new FormData(e.currentTarget).get("q") as string;
+                setMsg("thinking…");
+                try {
+                  const j = await post("/v1/ai/ask", { ownerUserId: owner, question: q });
+                  setMsg((j as { answer: string }).answer);
+                } catch (err) {
+                  setMsg(err instanceof Error ? err.message : "failed");
+                }
+                e.currentTarget.reset();
+              }}
+            >
+              <input name="q" placeholder="Ask about your money…" required />
+              <button type="submit">Ask</button>
+            </form>
           </div>
         </>
       )}
