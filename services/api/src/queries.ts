@@ -252,6 +252,59 @@ export async function fundWallet(walletId: string, amount: string, method: strin
   }
 }
 
+// Bill payment (recorded locally): debit wallet, credit equity, tagged with
+// biller + category. Live biller rails need a payments partner.
+export async function payBill(ownerUserId: string, walletId: string, biller: string, category: string, amount: string) {
+  if (!biller) throw new Error("biller is required");
+  if (Number(amount) <= 0) throw new Error("amount must be > 0");
+  const w = await pool.query(`SELECT id FROM wallets WHERE id = $1 AND owner_user_id = $2`, [walletId, ownerUserId]);
+  if (!w.rowCount) throw new Error("wallet not found");
+  const equity = "00000000-0000-0000-0000-000000000000";
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const entry = (
+      await client.query(
+        `INSERT INTO journal_entries (memo, reference_type, reference_id, created_by)
+         VALUES ($1, 'bill', $2, $3) RETURNING id`,
+        [`bill:${biller}`, `${biller}:${Date.now()}`, ownerUserId]
+      )
+    ).rows[0];
+    await client.query(
+      `INSERT INTO journal_lines (entry_id, wallet_id, debit, credit)
+       VALUES ($1,$2,$3,0), ($1,$4,0,$3)`,
+      [entry.id, walletId, amount, equity]
+    );
+    const bill = (
+      await client.query(
+        `INSERT INTO bills (owner_user_id, biller, category, amount, entry_id)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [ownerUserId, biller, category || "Bills", amount, entry.id]
+      )
+    ).rows[0];
+    await client.query(
+      `INSERT INTO notifications (user_id, type, title, body) VALUES ($1,'bill',$2,$3)`,
+      [ownerUserId, `Paid ${biller}`, `${amount} recorded under ${category || "Bills"}`]
+    );
+    await client.query("COMMIT");
+    return { id: bill.id, biller, amount };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listBills(ownerUserId: string) {
+  const r = await pool.query(
+    `SELECT id, biller, category, amount, status, created_at FROM bills
+     WHERE owner_user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+    [ownerUserId]
+  );
+  return r.rows;
+}
+
 // ---- Deferred-list fix: business backend (tables already in schema.sql) ----
 
 export async function createBusiness(ownerUserId: string, name: string) {

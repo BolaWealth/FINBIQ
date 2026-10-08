@@ -17,7 +17,7 @@ type BizSummary = { balance: string; budgets: number; upcoming: { id: string; am
 type InvestItem = { id: string; name: string; risk: string; minAmount: number; note: string };
 
 type Page =
-  | "wallet" | "history" | "budgets" | "savings"
+  | "wallet" | "history" | "budgets" | "savings" | "bills"
   | "loans" | "invest" | "business" | "reports" | "account";
 
 const PAGES: { id: Page; label: string; emoji: string; blurb: string }[] = [
@@ -25,6 +25,7 @@ const PAGES: { id: Page; label: string; emoji: string; blurb: string }[] = [
   { id: "history", label: "Transactions", emoji: "🧾", blurb: "Every transfer with live status." },
   { id: "budgets", label: "Budgets", emoji: "📊", blurb: "Set limits, watch live spend bars." },
   { id: "savings", label: "Savings", emoji: "💰", blurb: "Goals, progress, earn FINBIQ Points." },
+  { id: "bills", label: "Bills", emoji: "📃", blurb: "Pay billers, categorized, notified." },
   { id: "loans", label: "Loans", emoji: "🏦", blurb: "Affordability estimate from your activity." },
   { id: "invest", label: "Investments", emoji: "📈", blurb: "Learn the options, risks clearly labeled." },
   { id: "business", label: "Business", emoji: "🏢", blurb: "Business wallets, budgets, upcoming payments." },
@@ -72,6 +73,8 @@ export default function App() {
   const [estimate, setEstimate] = useState<{ maxEligible: number; disclaimer: string } | null>(null);
   const [invest, setInvest] = useState<InvestItem[]>([]);
   const [metrics, setMetrics] = useState<Record<string, string | number> | null>(null);
+  const [bills, setBills] = useState<{ id: string; biller: string; category: string; amount: string; status: string }[]>([]);
+  const [query, setQuery] = useState("");
   const [msg, setMsg] = useState("");
 
   const owner = uid ?? OWNER;
@@ -159,6 +162,10 @@ export default function App() {
     fetch(`${API}/v1/metrics`)
       .then((r) => r.json())
       .then((j) => j.users !== undefined && setMetrics(j))
+      .catch(() => {});
+    fetch(`${API}/v1/bills?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setBills(j))
       .catch(() => {});
   }, [owner, bizId]);
 
@@ -315,7 +322,12 @@ export default function App() {
         <>
           <h1>Transaction history</h1>
           <div className="card">
-            {history.map((t) => (
+            <div className="row-form" style={{ marginTop: 0, marginBottom: 8 }}>
+              <input placeholder="Search amount or status…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+            {history
+              .filter((t) => !query || t.amount.includes(query) || t.status.includes(query.toLowerCase()))
+              .map((t) => (
               <div key={t.id}>
                 <div
                   className="txn clickable"
@@ -412,6 +424,46 @@ export default function App() {
                 </div>
               );
             })}
+          </div>
+        </>
+      )}
+
+      {page === "bills" && (
+        <>
+          <h1>Bills</h1>
+          <form
+            className="card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              run(() => post("/v1/bills/pay", {
+                ownerUserId: owner,
+                walletId: WALLET_A,
+                biller: f.get("biller") as string,
+                category: (f.get("category") as string) || "Bills",
+                amount: f.get("amount") as string,
+              }), "Bill paid and categorized");
+              e.currentTarget.reset();
+            }}
+          >
+            <small>Pay a bill (recorded locally)</small>
+            <div className="row-form">
+              <input name="biller" placeholder="Biller e.g. EKEDC" required />
+              <input name="category" placeholder="Category" defaultValue="Bills" />
+              <input name="amount" placeholder="Amount" inputMode="decimal" required />
+              <button type="submit">Pay</button>
+            </div>
+            <div className="d">Live biller rails need a payments partner.</div>
+          </form>
+          <div className="card" style={{ marginTop: 12 }}>
+            <small>Paid bills ({bills.length})</small>
+            {bills.map((b) => (
+              <div className="txn" key={b.id}>
+                <span>{b.biller} <span className="pill">{b.category}</span></span>
+                <span>{fmt(b.amount)} · <span className="pill">{b.status}</span></span>
+              </div>
+            ))}
+            {!bills.length && <div className="d">no bills paid yet</div>}
           </div>
         </>
       )}
