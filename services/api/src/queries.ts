@@ -202,10 +202,14 @@ export async function askFinanceQuestion(ownerUserId: string, question: string) 
     const { groundedAnswer } = await import("./ai.js");
     const answer = await groundedAnswer(snapshot, question.trim().slice(0, 500));
     return { answer, grounded: true };
-  } catch {
+  } catch (e) {
     const lines = await insights(ownerUserId);
+    const reason = e instanceof Error ? e.message : "unknown error";
+    const offline = reason === "GEMINI_API_KEY not set";
     return {
-      answer: `AI is offline (no Gemini key configured). What I can tell you from your data:\n- ${lines.join("\n- ")}`,
+      answer: offline
+        ? `AI is offline (no Gemini key configured). What I can tell you from your data:\n- ${lines.join("\n- ")}`
+        : `Gemini request failed (${reason}). What I can tell you from your data:\n- ${lines.join("\n- ")}`,
       grounded: false,
     };
   }

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ".env") });
+console.log("[env] gemini:" + (process.env.GEMINI_API_KEY ? "set(len=" + process.env.GEMINI_API_KEY.length + ")" : "MISSING"));
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth } from "./auth.js";
 import { postTransfer } from "./ledger.js";
