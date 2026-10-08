@@ -305,6 +305,98 @@ export async function listBills(ownerUserId: string) {
   return r.rows;
 }
 
+// Unified activity: transfers + bills + airtime/data + funding, newest first.
+export async function listActivity(ownerUserId: string) {
+  const [t, b, a, f] = await Promise.all([
+    pool.query(
+      `SELECT t.id, 'transfer' AS kind, ('Transfer ' || LEFT(t.id::text,8)) AS label,
+         t.amount, t.status, t.created_at FROM transfers t
+       JOIN wallets w ON w.id = t.from_wallet_id WHERE w.owner_user_id = $1`,
+      [ownerUserId]
+    ),
+    pool.query(
+      `SELECT id, 'bill' AS kind, ('Bill: ' || biller) AS label, amount, status, created_at
+       FROM bills WHERE owner_user_id = $1`,
+      [ownerUserId]
+    ),
+    pool.query(
+      `SELECT id, kind, (kind || ': ' || network || ' ' || phone) AS label, amount, status, created_at
+       FROM airtime_purchases WHERE owner_user_id = $1`,
+      [ownerUserId]
+    ),
+    pool.query(
+      `SELECT e.id, 'funding' AS kind, e.memo AS label,
+         (SELECT SUM(credit) FROM journal_lines l WHERE l.entry_id = e.id
+          AND l.wallet_id IN (SELECT id FROM wallets WHERE owner_user_id = $1)) AS amount,
+         'completed' AS status, e.created_at
+       FROM journal_entries e WHERE e.reference_type IN ('bank','adjustment')
+       AND EXISTS (SELECT 1 FROM journal_lines l JOIN wallets w ON w.id = l.wallet_id
+                   WHERE l.entry_id = e.id AND w.owner_user_id = $1)`,
+      [ownerUserId]
+    ),
+  ]);
+  const rows = [...t.rows, ...b.rows, ...a.rows, ...f.rows.filter((r) => r.amount !== null)];
+  rows.sort((x, y) => +new Date(y.created_at) - +new Date(x.created_at));
+  return rows.slice(0, 100);
+}
+
+// Airtime & data (recorded locally): debit wallet, credit equity.
+// Live fulfillment needs a telco aggregator partner.
+export async function buyAirtime(
+  ownerUserId: string, walletId: string, kind: string, network: string, phone: string, amount: string
+) {
+  if (!["airtime", "data"].includes(kind)) throw new Error("kind must be airtime or data");
+  if (!network || !phone) throw new Error("network and phone are required");
+  if (Number(amount) <= 0) throw new Error("amount must be > 0");
+  if (!/^[\d+]{7,15}$/.test(phone)) throw new Error("invalid phone number");
+  const w = await pool.query(`SELECT id FROM wallets WHERE id = $1 AND owner_user_id = $2`, [walletId, ownerUserId]);
+  if (!w.rowCount) throw new Error("wallet not found");
+  const equity = "00000000-0000-0000-0000-000000000000";
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const entry = (
+      await client.query(
+        `INSERT INTO journal_entries (memo, reference_type, reference_id, created_by)
+         VALUES ($1, 'bill', $2, $3) RETURNING id`,
+        [`${kind}:${network}:${phone}`, `${kind}:${Date.now()}`, ownerUserId]
+      )
+    ).rows[0];
+    await client.query(
+      `INSERT INTO journal_lines (entry_id, wallet_id, debit, credit)
+       VALUES ($1,$2,$3,0), ($1,$4,0,$3)`,
+      [entry.id, walletId, amount, equity]
+    );
+    const p = (
+      await client.query(
+        `INSERT INTO airtime_purchases (owner_user_id, kind, network, phone, amount, entry_id)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+        [ownerUserId, kind, network, phone, amount, entry.id]
+      )
+    ).rows[0];
+    await client.query(
+      `INSERT INTO notifications (user_id, type, title, body) VALUES ($1,'bill',$2,$3)`,
+      [ownerUserId, `${kind} purchase`, `${network} ${phone} — ${amount}`]
+    );
+    await client.query("COMMIT");
+    return { id: p.id, kind, network, phone, amount, demo: true };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listAirtime(ownerUserId: string) {
+  const r = await pool.query(
+    `SELECT id, kind, network, phone, amount, status, created_at FROM airtime_purchases
+     WHERE owner_user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+    [ownerUserId]
+  );
+  return r.rows;
+}
+
 // ---- Deferred-list fix: business backend (tables already in schema.sql) ----
 
 export async function createBusiness(ownerUserId: string, name: string) {

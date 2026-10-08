@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime } from "./queries.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
@@ -297,6 +297,32 @@ createServer(async (req, res) => {
       return json(res, 200, await listBills(url.searchParams.get("owner") ?? ""));
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "bills_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/activity") {
+    try {
+      return json(res, 200, await listActivity(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "activity_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/airtime/buy") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await buyAirtime(b.ownerUserId, b.walletId, b.kind, b.network, b.phone, String(b.amount ?? ""));
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "airtime_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/airtime") {
+    try {
+      return json(res, 200, await listAirtime(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "airtime_failed" });
     }
   }
 

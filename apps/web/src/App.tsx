@@ -11,13 +11,14 @@ type Budget = { id: string; limit_amount: string; period: string; category: stri
 type Goal = { id: string; name: string; target_amount: string; saved: string };
 type Notice = { id: string; type: string; title: string; body: string; created_at: string };
 type Transfer = { id: string; amount: string; currency: string; status: string; created_at: string };
+type Activity = { id: string; kind: string; label: string; amount: string; status: string; created_at: string };
 type Summary = { totalBalance: number; inflow: string; outflow: string; saved: string; savingsTarget: string };
 type Biz = { id: string; name: string };
 type BizSummary = { balance: string; budgets: number; upcoming: { id: string; amount: string; status: string }[] };
 type InvestItem = { id: string; name: string; risk: string; minAmount: number; note: string };
 
 type Page =
-  | "wallet" | "history" | "budgets" | "savings" | "bills"
+  | "wallet" | "history" | "budgets" | "savings" | "bills" | "airtime"
   | "loans" | "invest" | "business" | "reports" | "account";
 
 const PAGES: { id: Page; label: string; emoji: string; blurb: string }[] = [
@@ -26,6 +27,7 @@ const PAGES: { id: Page; label: string; emoji: string; blurb: string }[] = [
   { id: "budgets", label: "Budgets", emoji: "📊", blurb: "Set limits, watch live spend bars." },
   { id: "savings", label: "Savings", emoji: "💰", blurb: "Goals, progress, earn FINBIQ Points." },
   { id: "bills", label: "Bills", emoji: "📃", blurb: "Pay billers, categorized, notified." },
+  { id: "airtime", label: "Airtime", emoji: "📱", blurb: "Top up airtime and data instantly." },
   { id: "loans", label: "Loans", emoji: "🏦", blurb: "Affordability estimate from your activity." },
   { id: "invest", label: "Investments", emoji: "📈", blurb: "Learn the options, risks clearly labeled." },
   { id: "business", label: "Business", emoji: "🏢", blurb: "Business wallets, budgets, upcoming payments." },
@@ -61,6 +63,7 @@ export default function App() {
   const [spent, setSpent] = useState("0");
   const [notices, setNotices] = useState<Notice[]>([]);
   const [history, setHistory] = useState<Transfer[]>([]);
+  const [activity, setActivity] = useState<Activity[]>([]);
   const [detail, setDetail] = useState<(Transfer & { lines?: { wallet_id: string; debit: string; credit: string }[] }) | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [aiInsights, setAiInsights] = useState<string[]>([]);
@@ -119,6 +122,10 @@ export default function App() {
     fetch(`${API}/v1/transfers?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setHistory(j))
+      .catch(() => {});
+    fetch(`${API}/v1/activity?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setActivity(j))
       .catch(() => {});
     fetch(`${API}/v1/reports/summary?owner=${owner}`)
       .then((r) => r.json())
@@ -322,16 +329,18 @@ export default function App() {
         <>
           <h1>Transaction history</h1>
           <div className="card">
-            <div className="row-form" style={{ marginTop: 0, marginBottom: 8 }}>
-              <input placeholder="Search amount or status…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <small>All money movement — transfers, bills, airtime, funding</small>
+            <div className="row-form" style={{ marginTop: 8, marginBottom: 8 }}>
+              <input placeholder="Search amount, status or type…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
-            {history
-              .filter((t) => !query || t.amount.includes(query) || t.status.includes(query.toLowerCase()))
+            {activity
+              .filter((t) => !query || t.amount.includes(query) || t.status.includes(query.toLowerCase()) || t.kind.includes(query.toLowerCase()) || t.label.toLowerCase().includes(query.toLowerCase()))
               .map((t) => (
               <div key={t.id}>
                 <div
                   className="txn clickable"
                   onClick={() => {
+                    if (t.kind !== "transfer") return;
                     if (detail?.id === t.id) return setDetail(null);
                     fetch(`${API}/v1/transfers/${t.id}`)
                       .then((r) => r.json())
@@ -339,8 +348,8 @@ export default function App() {
                       .catch(() => {});
                   }}
                 >
-                  <span>{fmt(t.amount)} · {new Date(t.created_at).toLocaleString()}</span>
-                  <span className="pill">{t.status}</span>
+                  <span>{t.kind === "transfer" ? fmt(t.amount) : `${t.label} · ${fmt(t.amount)}`} · {new Date(t.created_at).toLocaleString()}</span>
+                  <span className="pill">{t.kind} · {t.status}</span>
                 </div>
                 {detail?.id === t.id && detail.lines && (
                   <div className="d" style={{ paddingLeft: 12 }}>
@@ -351,7 +360,7 @@ export default function App() {
                 )}
               </div>
             ))}
-            {!history.length && <div className="d">no transfers yet</div>}
+            {!activity.length && <div className="d">no activity yet</div>}
           </div>
         </>
       )}
@@ -465,6 +474,46 @@ export default function App() {
             ))}
             {!bills.length && <div className="d">no bills paid yet</div>}
           </div>
+        </>
+      )}
+
+      {page === "airtime" && (
+        <>
+          <h1>Airtime & Data</h1>
+          <form
+            className="card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              run(() => post("/v1/airtime/buy", {
+                ownerUserId: owner,
+                walletId: WALLET_A,
+                kind: f.get("kind") as string,
+                network: f.get("network") as string,
+                phone: f.get("phone") as string,
+                amount: f.get("amount") as string,
+              }), "Purchase recorded");
+              e.currentTarget.reset();
+            }}
+          >
+            <small>Buy airtime or data (recorded locally)</small>
+            <div className="row-form">
+              <select name="kind" defaultValue="airtime">
+                <option value="airtime">Airtime</option>
+                <option value="data">Data</option>
+              </select>
+              <select name="network" defaultValue="MTN">
+                <option value="MTN">MTN</option>
+                <option value="Airtel">Airtel</option>
+                <option value="Glo">Glo</option>
+                <option value="9mobile">9mobile</option>
+              </select>
+              <input name="phone" placeholder="Phone e.g. 0803..." required />
+              <input name="amount" placeholder="Amount" inputMode="decimal" required />
+              <button type="submit">Buy</button>
+            </div>
+            <div className="d">Live delivery needs a telco aggregator partner.</div>
+          </form>
         </>
       )}
 
