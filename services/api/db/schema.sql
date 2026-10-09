@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS transfers (
   to_wallet_id UUID NOT NULL REFERENCES wallets(id) ON DELETE RESTRICT,
   amount NUMERIC(19,4) NOT NULL CHECK (amount > 0),
   currency CHAR(3) NOT NULL DEFAULT 'NGN',
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','posted','failed','reversed')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','completed','failed','reversed','cancelled')),
   entry_id UUID REFERENCES journal_entries(id) ON DELETE SET NULL,
   created_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

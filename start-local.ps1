@@ -20,7 +20,7 @@ if ($NoDocker) {
     $cand = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
     if (Test-Path $cand) { $psql = $cand } else { throw "psql missing. Install PostgreSQL 17 (EDB installer), then reopen terminal." }
   }
-  Write-Host "== 1/4 postgres service =="
+  Write-Host "== 1/5 postgres service =="
   $svc = Get-Service postgresql-x64-17 -ErrorAction SilentlyContinue
   if ($svc -and $svc.Status -ne "Running") { Start-Service postgresql-x64-17 }
   & $psql -U postgres -h localhost -c "SELECT 1" | Out-Null
@@ -31,23 +31,35 @@ if ($NoDocker) {
     if ($_ -notmatch "1") { & $psql -U postgres -h localhost -c "CREATE DATABASE finbiq OWNER finbiq" }
   }
 
-  Write-Host "== 2/4 schema =="
+  Write-Host "== 2/5 schema =="
   & $psql -U finbiq -h localhost -d finbiq -f services\api\db\schema.sql
 
-  Write-Host "== 3/4 seed =="
+  Write-Host "== 3/5 seed =="
   & $psql -U finbiq -h localhost -d finbiq -f services\api\db\seed.sql
+
+  Write-Host "== 4/5 migrations =="
+  Get-ChildItem services\api\db\migrate_*.sql | Sort-Object Name | ForEach-Object {
+    Write-Host "  applying $($_.Name)"
+    & $psql -U finbiq -h localhost -d finbiq -f $_.FullName
+  }
 } else {
-  Write-Host "== 1/4 data services =="
+  Write-Host "== 1/5 data services =="
   docker compose up -d postgres redis
 
-  Write-Host "== 2/4 schema =="
+  Write-Host "== 2/5 schema =="
   Get-Content services\api\db\schema.sql -Raw | docker compose exec -T postgres psql -U finbiq -d finbiq -f -
 
-  Write-Host "== 3/4 seed =="
+  Write-Host "== 3/5 seed =="
   Get-Content services\api\db\seed.sql -Raw | docker compose exec -T postgres psql -U finbiq -d finbiq -f -
+
+  Write-Host "== 4/5 migrations =="
+  Get-ChildItem services\api\db\migrate_*.sql | Sort-Object Name | ForEach-Object {
+    Write-Host "  applying $($_.Name)"
+    Get-Content $_.FullName -Raw | docker compose exec -T postgres psql -U finbiq -d finbiq -f -
+  }
 }
 
-Write-Host "== 4/4 dev servers (two new windows) =="
+Write-Host "== 5/5 dev servers (two new windows) =="
 Start-Process powershell -ArgumentList "-NoExit","-Command","pnpm --filter @finbiq/api dev"
 Start-Process powershell -ArgumentList "-NoExit","-Command","pnpm --filter @finbiq/web dev"
 

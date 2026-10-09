@@ -1,15 +1,13 @@
 // FINBIQ API skeleton v0.1.0 — stdlib http only (no framework yet).
 // Routes: GET /health, ALL /api/auth/* (BetterAuth), POST /v1/transfers,
 // GET /v1/wallets/:id/balance, GET /v1/budgets?owner=, GET /v1/savings/goals?owner=.
-import dotenv from "dotenv";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ".env") });
+import "./env.js"; // load .env first — ESM imports hoist, see src/env.ts
 console.log("[env] gemini:" + (process.env.GEMINI_API_KEY ? "set(len=" + process.env.GEMINI_API_KEY.length + ")" : "MISSING"));
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { auth } from "./auth.js";
+import { auth, pool } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
+import { paystackConfigured, initializeTransaction, verifyTransaction, verifyWebhookSignature } from "./paystack.js";
 
 const port = Number(process.env.PORT ?? 4000);
 
@@ -17,6 +15,10 @@ const cors = {
   "access-control-allow-origin": process.env.WEB_URL ?? "http://localhost:5173",
   "access-control-allow-methods": "GET,POST,OPTIONS",
   "access-control-allow-headers": "content-type,authorization",
+  // Required so the web app can send the BetterAuth session cookie
+  // (credentials: "include") to session-protected endpoints like
+  // POST /v1/fund/card. Allow-origin is a specific origin, never "*".
+  "access-control-allow-credentials": "true",
 };
 
 const json = (res: ServerResponse, status: number, body: unknown) => {
@@ -31,6 +33,22 @@ const readBody = (req: IncomingMessage) =>
     req.on("end", () => resolve(data));
     req.on("error", reject);
   });
+
+// Session helper: reads the BetterAuth session cookie so /v1 money
+// endpoints can require a signed-in user (e.g. POST /v1/fund/card).
+const getSessionUser = async (req: IncomingMessage, url: URL) => {
+  try {
+    const headers = new Headers();
+    const cookie = req.headers.cookie;
+    if (cookie) headers.set("cookie", Array.isArray(cookie) ? cookie.join("; ") : String(cookie));
+    const session = (await auth.api.getSession({ headers } as never)) as
+      | { user?: { id: string; email?: string } }
+      | null;
+    return session?.user ?? null;
+  } catch {
+    return null;
+  }
+};
 
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -54,7 +72,11 @@ createServer(async (req, res) => {
 <li><code>GET /v1/savings/goals?owner=</code> + <code>POST /v1/savings/goals</code> + <code>POST /v1/savings/contribute</code></li>
 <li><code>GET /v1/reports/summary?owner=</code></li><li><code>GET /v1/insights?owner=</code></li>
 <li><code>GET /v1/rewards?owner=</code></li><li><code>GET /v1/notifications?owner=</code></li>
-<li><code>GET /v1/profile?owner=</code></li></ul></body></html>`;
+<li><code>GET /v1/profile?owner=</code></li>
+<li><code>POST /v1/fund/card</code> (Paystack, session required)</li>
+<li><code>GET /v1/fund/verify?reference=</code> (session required)</li>
+<li><code>POST /v1/webhooks/paystack</code> (HMAC signature)</li>
+<li><code>GET /v1/payments?owner=</code></li></ul></body></html>`;
     res.writeHead(200, { "content-type": "text/html", ...cors });
     return res.end(html);
   }
@@ -280,6 +302,106 @@ createServer(async (req, res) => {
       return json(res, 201, out);
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "fund_failed" });
+    }
+  }
+
+  // Paystack card funding — session required. Amount is validated here and
+  // re-verified against Paystack's own response BEFORE any ledger posting.
+  if (req.method === "POST" && url.pathname === "/v1/fund/card") {
+    try {
+      const user = await getSessionUser(req, url);
+      if (!user) return json(res, 401, { error: "sign_in_required" });
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const amount = String(b.amount ?? "");
+      if (!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0 || Number(amount) > 10000000)
+        throw new Error("amount must be a positive amount up to 10,000,000.00");
+      const walletId = String(b.walletId ?? "");
+      const own = await pool.query(
+        `SELECT id FROM wallets WHERE id=$1 AND owner_user_id=$2 AND business_id IS NULL`,
+        [walletId, user.id]
+      );
+      if (!own.rowCount) throw new Error("wallet not found");
+      const idempotencyKey = String(b.idempotencyKey ?? crypto.randomUUID());
+      const payment = await createPayment(user.id, walletId, amount, idempotencyKey);
+      if (!paystackConfigured()) throw new Error("PAYSTACK_SECRET_KEY not set");
+      const data = await initializeTransaction({
+        email: user.email ?? "user@finbiq.local",
+        amountKobo: Math.round(Number(amount) * 100),
+        reference: payment.reference,
+        callbackUrl: process.env.WEB_URL ?? "http://localhost:5173",
+      });
+      return json(res, 201, {
+        authorizationUrl: data.authorization_url,
+        reference: payment.reference,
+        paymentId: payment.id,
+      });
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "card_fund_failed" });
+    }
+  }
+
+  // Verify a Paystack transaction server-side and post the ledger exactly
+  // once. Session required; users can only verify their own payments.
+  if (req.method === "GET" && url.pathname === "/v1/fund/verify") {
+    try {
+      const reference = url.searchParams.get("reference") ?? "";
+      if (!reference) throw new Error("reference is required");
+      const user = await getSessionUser(req, url);
+      if (!user) return json(res, 401, { error: "sign_in_required" });
+      const payment = await getPaymentByReference(reference);
+      if (!payment) throw new Error("payment not found");
+      if (payment.owner_user_id !== user.id) return json(res, 403, { error: "forbidden" });
+      if (payment.status === "success")
+        return json(res, 200, { status: "success", verified: true, deduped: true, payment });
+      if (!paystackConfigured()) throw new Error("PAYSTACK_SECRET_KEY not set");
+      const data = await verifyTransaction(reference);
+      const expectedKobo = Math.round(Number(payment.amount) * 100);
+      if (data.status === "success" && data.reference === reference && Number(data.amount) === expectedKobo) {
+        const out = await completePayment(reference, String(data.id ?? null));
+        await createNotification(payment.owner_user_id, "transaction", "Card funding successful", `${payment.amount} NGN added to your wallet`);
+        return json(res, 200, { status: "success", verified: true, deduped: out.deduped, payment: out.payment });
+      }
+      return json(res, 200, { status: data.status ?? payment.status, verified: false, payment });
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "verify_failed" });
+    }
+  }
+
+  // Paystack webhook — server-to-server, so it authenticates with the
+  // HMAC signature (not a session). Idempotent via payments.status.
+  if (req.method === "POST" && url.pathname === "/v1/webhooks/paystack") {
+    try {
+      const raw = await readBody(req);
+      if (!verifyWebhookSignature(raw, req.headers["x-paystack-signature"]))
+        return json(res, 401, { error: "invalid_signature" });
+      const event = JSON.parse(raw);
+      if (event.event === "charge.success") {
+        const d = event.data ?? {};
+        const reference = String(d.reference ?? "");
+        const payment = await getPaymentByReference(reference);
+        if (
+          payment &&
+          payment.status !== "success" &&
+          Number(d.amount) === Math.round(Number(payment.amount) * 100)
+        ) {
+          await completePayment(reference, String(d.id ?? null));
+          await createNotification(payment.owner_user_id, "transaction", "Card funding successful", `${payment.amount} NGN added to your wallet`);
+        }
+      } else if (event.event === "charge.failure" || event.event === "charge.abandoned") {
+        const reference = String((event.data ?? {}).reference ?? "");
+        if (reference) await markPaymentFailed(reference, event.event);
+      }
+      return json(res, 200, { received: true });
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "webhook_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/payments") {
+    try {
+      return json(res, 200, await listPayments(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "payments_failed" });
     }
   }
 

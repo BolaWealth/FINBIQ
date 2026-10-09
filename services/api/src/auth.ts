@@ -1,5 +1,6 @@
 // FINBIQ BetterAuth config — local Postgres, email/password + TOTP 2FA.
 // Tables: services/api/db/schema.sql + migrate_003.sql. See docs/adr/0004-local-auth.md.
+import "./env.js"; // load .env before the Pool below reads DATABASE_URL
 import { betterAuth } from "better-auth";
 import { twoFactor } from "better-auth/plugins";
 import { Pool } from "pg";

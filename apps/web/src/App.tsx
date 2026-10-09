@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./styles.css";
 import AuthPanel from "./AuthPanel";
+import { authClient } from "./auth";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
 const OWNER = "demo-user-1";
@@ -42,6 +43,7 @@ async function post(path: string, body: unknown) {
   const r = await fetch(`${API}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
+    credentials: "include", // send the BetterAuth session cookie
     body: JSON.stringify(body),
   });
   const j = await r.json();
@@ -191,6 +193,47 @@ export default function App() {
     }
   };
 
+  // Paystack card funding: create the payment server-side, open the Paystack
+  // page, then poll verify until Paystack confirms (or the webhook fires first).
+  const cardFund = async (amt: string) => {
+    try {
+      setMsg("");
+      const { data } = await authClient.getSession();
+      if (!data?.user)
+        throw new Error("Sign in first — open the Account page, then choose Card (Paystack)");
+      const started = (await post("/v1/fund/card", {
+        walletId: WALLET_A,
+        amount: amt,
+        idempotencyKey: crypto.randomUUID(),
+      })) as { authorizationUrl: string; reference: string };
+      window.open(started.authorizationUrl, "_blank", "noopener");
+      setMsg("Complete the payment in the Paystack tab…");
+      const deadline = Date.now() + 120000;
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 2500));
+        const v = (await fetch(
+          `${API}/v1/fund/verify?reference=${encodeURIComponent(started.reference)}`,
+          { credentials: "include" }
+        ).then((r) => r.json())) as { status?: string; error?: string };
+        if (v.error)
+          throw new Error(
+            v.error === "sign_in_required" ? "Session expired — sign in and try again" : v.error
+          );
+        if (v.status === "success") {
+          setMsg(`Added ${fmt(amt)} by card (Paystack)`);
+          refresh();
+          return;
+        }
+        if (v.status === "failed" || v.status === "abandoned")
+          throw new Error("Payment failed or was abandoned");
+        if (Date.now() > deadline)
+          throw new Error("Still pending — finish the Paystack tab, then check History");
+      }
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "card payment failed");
+    }
+  };
+
   const food = budgets.find((b) => b.category === "Food");
   const foodPct = food ? Math.min(100, (Number(spent) / Number(food.limit_amount)) * 100) : 0;
 
@@ -283,25 +326,27 @@ export default function App() {
                 const f = new FormData(e.currentTarget);
                 const amt = f.get("fundAmount") as string;
                 const method = f.get("method") as string;
+                e.currentTarget.reset();
+                if (method === "paystack") {
+                  cardFund(amt);
+                  return;
+                }
                 run(
                   () => post("/v1/fund", { walletId: WALLET_A, amount: amt, method, createdBy: owner }),
-                  method === "card"
-                    ? `Added ${fmt(amt)} by card (recorded — no live processor attached)`
-                    : `Cash deposit of ${fmt(amt)} recorded`
+                  `Cash deposit of ${fmt(amt)} recorded`
                 );
-                e.currentTarget.reset();
               }}
             >
               <small>Add money — cash or card</small>
               <div className="row-form">
                 <input name="fundAmount" placeholder="Amount" inputMode="decimal" required />
                 <select name="method" defaultValue="cash">
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
+                  <option value="cash">Cash (recorded locally)</option>
+                  <option value="paystack">Card (Paystack)</option>
                 </select>
                 <button type="submit">Add</button>
               </div>
-              <div className="d">Card is recorded only until a payments partner is connected.</div>
+              <div className="d">Card runs through Paystack (test mode until keys are added).</div>
             </form>
             <div className="card">
               <small>Recent activity</small>

@@ -1,6 +1,10 @@
 // FINBIQ read + write queries — wallets, budgets, savings, notifications.
 import { pool } from "./auth.js";
 
+// System equity wallet: balancing side of external inflows/outflows.
+// Never counts as user money in aggregates (see financeSummary).
+const EQUITY_WALLET_ID = "00000000-0000-0000-0000-000000000000";
+
 export async function getWalletBalance(walletId: string) {
   const r = await pool.query("SELECT balance FROM wallet_balances WHERE wallet_id = $1", [walletId]);
   return { walletId, balance: r.rows[0]?.balance ?? "0.0000" };
@@ -126,10 +130,14 @@ export async function getTransfer(transferId: string) {
 }
 
 export async function financeSummary(ownerUserId: string) {
+  // Exclude the system equity wallet: it holds the balancing side of external
+  // inflows/outflows, so including it nets the user's money to zero and the
+  // AI snapshot would report "total balance: 0".
   const wallets = await pool.query(
     `SELECT w.id, COALESCE(SUM(l.credit - l.debit),0) AS balance
      FROM wallets w LEFT JOIN journal_lines l ON l.wallet_id = w.id
-     WHERE w.owner_user_id = $1 GROUP BY w.id`,
+     WHERE w.owner_user_id = $1 AND w.id <> '00000000-0000-0000-0000-000000000000'
+     GROUP BY w.id`,
     [ownerUserId]
   );
   const flows = await pool.query(
@@ -169,7 +177,7 @@ export async function insights(ownerUserId: string) {
   const goals = await listSavingsGoals(ownerUserId);
   for (const g of goals) {
     const pct = Number(g.target_amount) > 0 ? (Number(g.saved) / Number(g.target_amount)) * 100 : 0;
-    if (pct >= 100) out.push(`Goal "${g.name}" fully funded — consider setting a next goal.`);
+    if (pct >= 100) out.push(`Goal "${g.name}" fully funded (${g.saved} of ${g.target_amount}) — consider setting a next goal.`);
     else out.push(`Goal "${g.name}" is ${pct.toFixed(0)}% funded (${g.saved} of ${g.target_amount}).`);
   }
   if (!out.length) out.push("No activity yet — make a transfer or set a budget to generate insights.");
@@ -506,4 +514,112 @@ export async function investmentCatalog() {
     disclaimer:
       "Education only — execution and holdings require a licensed investment provider (PRD Sec.18).",
   };
+}
+
+// ---- Paystack card funding ----
+// A payment row is created BEFORE Paystack is called (status 'initialized'),
+// so retries with the same idempotency key reuse the same reference and
+// never double-charge. The ledger is only posted after Paystack confirms
+// the exact amount (completePayment).
+
+export async function createPayment(
+  ownerUserId: string,
+  walletId: string,
+  amount: string,
+  idempotencyKey: string
+) {
+  const reference =
+    "finbiq_" + Date.now().toString(36) + "_" + crypto.randomUUID().slice(0, 8);
+  try {
+    const r = await pool.query(
+      `INSERT INTO payments (owner_user_id, wallet_id, reference, idempotency_key, amount, currency, status)
+       VALUES ($1,$2,$3,$4,$5,'NGN','initialized') RETURNING *`,
+      [ownerUserId, walletId, reference, idempotencyKey, amount]
+    );
+    return r.rows[0];
+  } catch (e) {
+    // Unique violation on idempotency_key -> client retry: reuse the row.
+    if (e && typeof e === "object" && (e as { code?: string }).code === "23505") {
+      return await getPaymentByIdempotency(idempotencyKey);
+    }
+    throw e;
+  }
+}
+
+export async function getPaymentByReference(reference: string) {
+  const r = await pool.query(`SELECT * FROM payments WHERE reference = $1`, [reference]);
+  return r.rows[0] ?? null;
+}
+
+export async function getPaymentByIdempotency(key: string) {
+  const r = await pool.query(`SELECT * FROM payments WHERE idempotency_key = $1`, [key]);
+  return r.rows[0];
+}
+
+// Complete a funded payment exactly once: marks success and posts the
+// double-entry credit (user wallet) / debit (equity) in one transaction.
+// Called from BOTH /v1/fund/verify and the Paystack webhook — the row lock
+// + status check makes the second call a no-op (deduped).
+export async function completePayment(reference: string, providerRef: string | null) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const locked = await client.query(
+      `SELECT * FROM payments WHERE reference = $1 FOR UPDATE`,
+      [reference]
+    );
+    if (!locked.rowCount) {
+      await client.query("ROLLBACK");
+      throw new Error("payment not found");
+    }
+    const p = locked.rows[0];
+    if (p.status === "success") {
+      await client.query("COMMIT");
+      return { deduped: true, payment: p, entryId: null };
+    }
+    const entry = (
+      await client.query(
+        `INSERT INTO journal_entries (memo, reference_type, reference_id, created_by)
+         VALUES ($1,'paystack',$2,$3) RETURNING id`,
+        [`paystack funding ${reference}`, reference, p.owner_user_id]
+      )
+    ).rows[0];
+    // credit user wallet, debit equity: SUM(debit)=SUM(credit)=amount
+    await client.query(
+      `INSERT INTO journal_lines (entry_id, wallet_id, debit, credit)
+       VALUES ($1,$2,0,$3), ($1,$4,$3,0)`,
+      [entry.id, p.wallet_id, p.amount, EQUITY_WALLET_ID]
+    );
+    const upd = (
+      await client.query(
+        `UPDATE payments SET status='success', paid_at=now(), provider_ref=$2,
+           metadata = metadata || $3::jsonb WHERE id=$1 RETURNING *`,
+        [p.id, providerRef, JSON.stringify({ completedVia: "api" })]
+      )
+    ).rows[0];
+    await client.query("COMMIT");
+    return { deduped: false, payment: upd, entryId: entry.id };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function markPaymentFailed(reference: string, reason: string) {
+  await pool.query(
+    `UPDATE payments SET status='failed', metadata = metadata || $2::jsonb
+     WHERE reference=$1 AND status='initialized'`,
+    [reference, JSON.stringify({ failure: reason })]
+  );
+}
+
+export async function listPayments(ownerUserId: string) {
+  const r = await pool.query(
+    `SELECT id, reference, amount, currency, status, provider_ref, paid_at, created_at
+     FROM payments WHERE owner_user_id=$1 ORDER BY created_at DESC LIMIT 50`,
+    [ownerUserId]
+  );
+  return r.rows;
 }
