@@ -1,0 +1,19 @@
+# FINBIQ on Netlify — static frontend, local API+DB (Phase 1).
+# The web app builds to static files; the API and Postgres stay on your device.
+# Site works fully on YOUR machine (page at *.netlify.app calls http://localhost:4000).
+# Public visitors need a hosted API+DB later (Neon + Render/Railway free tiers).
+
+[build]
+  base = "/"
+  publish = "apps/web/dist"
+  command = "npm i -g pnpm@9 && pnpm install && pnpm --filter @finbiq/web build"
+
+[build.environment]
+  NODE_VERSION = "22"
+  VITE_API_URL = "http://localhost:4000"
+
+# Hash routing needs no rewrite rules, but keep SPA fallback harmless.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
