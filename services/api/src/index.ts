@@ -316,6 +316,8 @@ createServer(async (req, res) => {
       if (!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0 || Number(amount) > 10000000)
         throw new Error("amount must be a positive amount up to 10,000,000.00");
       const walletId = String(b.walletId ?? "");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(walletId))
+        throw new Error("walletId is required");
       const own = await pool.query(
         `SELECT id FROM wallets WHERE id=$1 AND owner_user_id=$2 AND business_id IS NULL`,
         [walletId, user.id]
