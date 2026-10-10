@@ -27,3 +27,6 @@ pgdata/
 
 # Design preview build artifacts (keep source html)
 *.tsbuildinfo
+
+# Local Netlify folder
+.netlify
