@@ -470,4 +470,4 @@ createServer(async (req, res) => {
   }
 
   return json(res, 404, { error: "not_found" });
-}).listen(port, () => console.log(`finbiq-api listening on :${port}`));
+}).listen(port, "::", () => console.log(`finbiq-api listening on :${port}`));
