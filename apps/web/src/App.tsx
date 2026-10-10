@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./styles.css";
 import AuthPanel from "./AuthPanel";
+import InstallButton from "./InstallButton";
 import { authClient } from "./auth";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
@@ -251,6 +252,7 @@ export default function App() {
             </a>
           ))}
         </div>
+        <InstallButton />
       </nav>
 
       <p className="muted">
