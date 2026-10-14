@@ -3,7 +3,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { postTransfer } from "../src/ledger.js";
-import { createBudget, budgetSpend, insights } from "../src/queries.js";
+import { createBudget, budgetSpend, insights, setPref, getPrefs, createNotification } from "../src/queries.js";
 
 const A = "11111111-1111-1111-1111-111111111111";
 const B = "22222222-2222-2222-2222-222222222222";
@@ -55,5 +55,22 @@ describe("budgets", () => {
     const lines = await insights("demo-user-1");
     assert.ok(lines.length > 0);
     for (const line of lines) assert.match(line, /\d/);
+  });
+});
+
+describe("notification prefs", () => {
+  it("defaults all types to on", async () => {
+    const prefs = await getPrefs("demo-user-1");
+    assert.equal(prefs.length, 8);
+    for (const p of prefs) assert.equal(p.enabled, true);
+  });
+
+  it("skips creating when type is off, creates when on", async () => {
+    await setPref("demo-user-1", "goal", false);
+    const off = await createNotification("demo-user-1", "goal", "t", "b");
+    assert.deepEqual(off, { skipped: true });
+    await setPref("demo-user-1", "goal", true);
+    const on = await createNotification("demo-user-1", "goal", "pref test", "b");
+    assert.ok("id" in on);
   });
 });

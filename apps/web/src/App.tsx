@@ -82,6 +82,7 @@ export default function App() {
   const [metrics, setMetrics] = useState<Record<string, string | number> | null>(null);
   const [bills, setBills] = useState<{ id: string; biller: string; category: string; amount: string; status: string }[]>([]);
   const [query, setQuery] = useState("");
+  const [prefs, setPrefs] = useState<{ type: string; enabled: boolean }[]>([]);
   const [msg, setMsg] = useState("");
 
   const owner = uid ?? OWNER;
@@ -180,6 +181,10 @@ export default function App() {
     fetch(`${API}/v1/bills?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setBills(j))
+      .catch(() => {});
+    fetch(`${API}/v1/notifications/prefs?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setPrefs(j))
       .catch(() => {});
   }, [owner, bizId]);
 
@@ -686,6 +691,29 @@ export default function App() {
                 <div className="txn" key={n.id}>
                   <span>{n.title}</span>
                   <span className="pill">{n.type}</span>
+                </div>
+              ))}
+              <small style={{ marginTop: 8, display: "block" }}>Alert preferences</small>
+              {prefs.map((p) => (
+                <div className="txn" key={p.type}>
+                  <span>{p.type}</span>
+                  <button
+                    className={p.enabled ? "active" : ""}
+                    onClick={() =>
+                      run(async () => {
+                        const r = await fetch(`${API}/v1/notifications/prefs`, {
+                          method: "PUT",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({ ownerUserId: owner, type: p.type, enabled: !p.enabled }),
+                        });
+                        const j = await r.json();
+                        if (!r.ok) throw new Error(j.error ?? "failed");
+                        setPrefs((prev) => prev.map((x) => (x.type === p.type ? { ...x, enabled: !p.enabled } : x)));
+                      }, `${p.type} alerts ${p.enabled ? "off" : "on"}`)
+                    }
+                  >
+                    {p.enabled ? "On" : "Off"}
+                  </button>
                 </div>
               ))}
             </div>

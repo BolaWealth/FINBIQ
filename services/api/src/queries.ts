@@ -114,11 +114,35 @@ export async function listNotifications(userId: string) {
 }
 
 export async function createNotification(userId: string, type: string, title: string, body = "") {
+  const pref = await pool.query(
+    `SELECT enabled FROM notification_prefs WHERE owner_user_id = $1 AND type = $2`,
+    [userId, type]
+  );
+  if (pref.rowCount && !pref.rows[0].enabled) return { skipped: true as const };
   const r = await pool.query(
     `INSERT INTO notifications (user_id, type, title, body) VALUES ($1,$2,$3,$4) RETURNING id`,
     [userId, type, title, body]
   );
   return { id: r.rows[0].id };
+}
+
+const NOTICE_TYPES = ['transaction','low_balance','budget','bill','security','goal','financing','account'];
+
+export async function getPrefs(ownerUserId: string) {
+  const r = await pool.query(`SELECT type, enabled FROM notification_prefs WHERE owner_user_id = $1`, [ownerUserId]);
+  const map: Record<string, boolean> = {};
+  for (const row of r.rows) map[row.type] = row.enabled;
+  return NOTICE_TYPES.map((type) => ({ type, enabled: map[type] ?? true }));
+}
+
+export async function setPref(ownerUserId: string, type: string, enabled: boolean) {
+  if (!NOTICE_TYPES.includes(type)) throw new Error("unknown notification type");
+  await pool.query(
+    `INSERT INTO notification_prefs (owner_user_id, type, enabled) VALUES ($1,$2,$3)
+     ON CONFLICT (owner_user_id, type) DO UPDATE SET enabled = EXCLUDED.enabled`,
+    [ownerUserId, type, enabled]
+  );
+  return { type, enabled };
 }
 
 // ---- MVP gap closure vs PRD Sec.8/19/21/33: history, reports, insights, rewards, profile ----

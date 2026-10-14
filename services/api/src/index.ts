@@ -6,7 +6,7 @@ console.log("[env] gemini:" + (process.env.GEMINI_API_KEY ? "set(len=" + process
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth, pool } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, listNotifications, createNotification, getPrefs, setPref, listTransfers, getTransfer, financeSummary, insights, rewardPoints, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
 import { paystackConfigured, initializeTransaction, verifyTransaction, verifyWebhookSignature } from "./paystack.js";
 
 const port = Number(process.env.PORT ?? 4000);
@@ -459,6 +459,24 @@ createServer(async (req, res) => {
       return json(res, 200, out);
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "ask_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/notifications/prefs") {
+    try {
+      return json(res, 200, await getPrefs(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "prefs_failed" });
+    }
+  }
+
+  if (req.method === "PUT" && url.pathname === "/v1/notifications/prefs") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await setPref(b.ownerUserId, b.type, Boolean(b.enabled));
+      return json(res, 200, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "pref_failed" });
     }
   }
 
