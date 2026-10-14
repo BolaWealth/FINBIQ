@@ -30,3 +30,6 @@ pgdata/
 
 # Local Netlify folder
 .netlify
+
+# Local tunnel binary (downloaded, ~55MB, not for git)
+infra/cloudflared.exe
