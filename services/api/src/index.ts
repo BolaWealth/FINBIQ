@@ -6,7 +6,7 @@ console.log("[env] gemini:" + (process.env.GEMINI_API_KEY ? "set(len=" + process
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth, pool } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, withdrawFromGoal, goalMembers, smartCategorize, cashForecast, listNotifications, createNotification, getPrefs, setPref, listTransfers, getTransfer, financeSummary, insights, rewardPoints, redeemCashback, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, createCircle, joinCircle, listCircles, circleContribute, circleAdvance, createFamilyWallet, listFamilyWallets, createAutopilot, listAutopilot, runAutopilot, createPaymentLink, getPaymentLink, payPaymentLink, listPaymentLinks, finbiqScore, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, withdrawFromGoal, goalMembers, smartCategorize, cashForecast, listNotifications, createNotification, getPrefs, setPref, listTransfers, getTransfer, financeSummary, insights, rewardPoints, redeemCashback, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, monthlyStatement, listStatements, createCircle, joinCircle, listCircles, circleContribute, circleAdvance, createFamilyWallet, listFamilyWallets, createAutopilot, listAutopilot, runAutopilot, createPaymentLink, getPaymentLink, payPaymentLink, listPaymentLinks, finbiqScore, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
 import { paystackConfigured, initializeTransaction, verifyTransaction, verifyWebhookSignature } from "./paystack.js";
 
 const port = Number(process.env.PORT ?? 4000);
@@ -675,6 +675,22 @@ createServer(async (req, res) => {
       return json(res, 201, out);
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "pay_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/statements") {
+    try {
+      return json(res, 200, await listStatements(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "statements_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/v1/statements/")) {
+    try {
+      return json(res, 200, await monthlyStatement(url.searchParams.get("owner") ?? "", url.pathname.split("/")[3]));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "statement_failed" });
     }
   }
 

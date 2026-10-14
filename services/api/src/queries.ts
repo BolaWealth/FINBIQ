@@ -388,6 +388,64 @@ export async function redeemCashback(ownerUserId: string, points: number) {
   }
 }
 
+// Monthly statements: opening/closing balance, inflow/outflow, savings,
+// budget adherence — computed from the ledger for any month, current included.
+export async function monthlyStatement(ownerUserId: string, ym: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) throw new Error("month must be YYYY-MM");
+  const start = `${ym}-01`;
+  const end = `(DATE '${start}' + INTERVAL '1 month')::date`;
+  const q = async (sql: string, p: unknown[]) => (await pool.query(sql, p)).rows[0];
+  const open = await q(
+    `SELECT COALESCE(SUM(l.credit - l.debit),0) AS b FROM journal_lines l
+     JOIN journal_entries e ON e.id = l.entry_id JOIN wallets w ON w.id = l.wallet_id
+     WHERE w.owner_user_id = $1 AND e.created_at < $2::date`, [ownerUserId, start]
+  );
+  const flow = await q(
+    `SELECT COALESCE(SUM(l.credit),0) AS inflow, COALESCE(SUM(l.debit),0) AS outflow
+     FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id
+     JOIN wallets w ON w.id = l.wallet_id
+     WHERE w.owner_user_id = $1 AND e.created_at >= $2::date AND e.created_at < ${end}`,
+    [ownerUserId, start]
+  );
+  const cats = await pool.query(
+    `SELECT t.category, SUM(t.amount) AS spent FROM (
+       SELECT tr.category, tr.amount, tr.created_at FROM transfers tr
+       JOIN wallets w ON w.id = tr.from_wallet_id WHERE w.owner_user_id = $1 AND tr.status = 'completed'
+       UNION ALL
+       SELECT bl.category, bl.amount, bl.created_at FROM bills bl WHERE bl.owner_user_id = $1
+       UNION ALL
+       SELECT INITCAP(a.kind), a.amount, a.created_at FROM airtime_purchases a WHERE a.owner_user_id = $1
+     ) t WHERE t.created_at >= $2::date AND t.created_at < ${end} GROUP BY 1 ORDER BY 2 DESC`,
+    [ownerUserId, start]
+  );
+  const save = await q(
+    `SELECT COALESCE(SUM(s.amount),0) AS s FROM savings_contributions s
+     JOIN savings_goals g ON g.id = s.goal_id
+     WHERE g.owner_user_id = $1 AND s.created_at >= $2::date AND s.created_at < ${end}`,
+    [ownerUserId, start]
+  );
+  const inflow = Number(flow.inflow), outflow = Number(flow.outflow);
+  return {
+    month: ym, opening: Number(open.b), inflow, outflow,
+    closing: Number(open.b) + inflow - outflow,
+    saved: Number(save.s), byCategory: cats.rows,
+  };
+}
+
+export async function listStatements(ownerUserId: string) {
+  const r = await pool.query(
+    `SELECT TO_CHAR(DATE_TRUNC('month', e.created_at),'YYYY-MM') AS ym
+     FROM journal_entries e JOIN journal_lines l ON l.entry_id = e.id
+     JOIN wallets w ON w.id = l.wallet_id WHERE w.owner_user_id = $1
+     GROUP BY 1 ORDER BY 1 DESC LIMIT 12`, [ownerUserId]
+  );
+  const now = new Date();
+  const cur = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const months = r.rows.map((x) => x.ym as string);
+  if (!months.includes(cur)) months.unshift(cur);
+  return Promise.all(months.map(async (ym) => monthlyStatement(ownerUserId, ym)));
+}
+
 // Simple success metrics (PRD Sec.30): counts and sums straight from the tables.
 export async function platformMetrics() {
   const q = (sql: string) => pool.query(sql).then((r) => r.rows[0]);

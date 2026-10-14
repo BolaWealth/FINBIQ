@@ -85,6 +85,8 @@ export default function App() {
   const [estimate, setEstimate] = useState<{ maxEligible: number; disclaimer: string } | null>(null);
   const [invest, setInvest] = useState<InvestItem[]>([]);
   const [metrics, setMetrics] = useState<Record<string, string | number> | null>(null);
+  const [statements, setStatements] = useState<{ month: string; opening: string; inflow: string; outflow: string; closing: string; saved: string; byCategory: { category: string; spent: string }[] }[]>([]);
+  const [openStmt, setOpenStmt] = useState("");
   const [bills, setBills] = useState<{ id: string; biller: string; category: string; amount: string; status: string }[]>([]);
   const [query, setQuery] = useState("");
   const [prefs, setPrefs] = useState<{ type: string; enabled: boolean }[]>([]);
@@ -190,6 +192,10 @@ export default function App() {
     fetch(`${API}/v1/metrics`)
       .then((r) => r.json())
       .then((j) => j.users !== undefined && setMetrics(j))
+      .catch(() => {});
+    fetch(`${API}/v1/statements?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setStatements(j))
       .catch(() => {});
     fetch(`${API}/v1/bills?owner=${owner}`)
       .then((r) => r.json())
@@ -903,6 +909,29 @@ export default function App() {
                   </button>
                 </div>
               ))}
+            </div>
+            <div className="card">
+              <small>Monthly statements</small>
+              {statements.map((s) => (
+                <div key={s.month}>
+                  <div
+                    className="txn clickable"
+                    onClick={() => setOpenStmt(openStmt === s.month ? "" : s.month)}
+                  >
+                    <span><b>{s.month}</b> · {fmt(s.inflow)} in / {fmt(s.outflow)} out</span>
+                    <span className="pill">close {fmt(s.closing)}</span>
+                  </div>
+                  {openStmt === s.month && (
+                    <div className="d" style={{ paddingLeft: 12 }}>
+                      <div>Opening: {fmt(s.opening)} · Saved: {fmt(s.saved)}</div>
+                      {(s.byCategory ?? []).map((c, i) => (
+                        <div key={i}>{c.category}: {fmt(c.spent)}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {!statements.length && <div className="d">no statements yet</div>}
             </div>
             <div className="card">
               <small>Platform metrics</small>
