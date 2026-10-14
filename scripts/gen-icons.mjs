@@ -9,9 +9,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "apps", "web", "public", "icons");
 mkdirSync(outDir, { recursive: true });
 
-// Brand: midnight navy bg, gold ring, white block "F".
-const PURPLE = [10, 14, 31];
-const GOLD = [212, 175, 55];
+// Brand: deep purple bg, gold ring, white block "F".
+const PURPLE = [91, 33, 182];
+const GOLD = [201, 162, 39];
 const WHITE = [255, 255, 255];
 
 function roundedMask(x, y, s, r) {

@@ -1,19 +1,15 @@
 @import "../../../packages/design-system/tokens.css";
 
-/* Mobile-first: phone-width canvas, bottom tabs as primary nav. */
 body {
-  background:
-    radial-gradient(600px 300px at 50% -5%, rgba(212, 175, 55, 0.12), transparent 60%),
-    radial-gradient(500px 300px at 90% 30%, rgba(90, 80, 200, 0.15), transparent 60%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-family);
   margin: 0;
   min-height: 100vh;
 }
 .page {
-  padding: 16px 16px 110px;
-  max-width: 480px;
+  padding: 16px 16px 96px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 .muted {
@@ -25,54 +21,53 @@ body {
   margin: 16px 0;
 }
 button {
-  background: var(--card2);
+  background: var(--bg2);
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 12px 16px;
   font-weight: 700;
   cursor: pointer;
   min-height: 48px;
 }
 button.active {
-  background: linear-gradient(135deg, var(--accent), #a8861f);
-  color: #1a1405;
-  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 .grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 12px;
 }
 .grid2 {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-bottom: 12px;
 }
 .card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)), var(--card);
+  background: linear-gradient(180deg, var(--card), var(--card2));
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 18px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(8px);
+  padding: 16px;
+  box-shadow: 0 2px 10px rgba(91, 33, 182, 0.07);
 }
 .card small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.6px;
 }
 .card .v {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   margin-top: 6px;
 }
 .card .v.sm {
-  font-size: 19px;
+  font-size: 18px;
 }
 .card .d {
   font-size: 12px;
@@ -86,16 +81,17 @@ button.active {
   color: var(--warn);
 }
 .bar {
-  height: 10px;
+  height: 8px;
   background: var(--track);
   border-radius: 99px;
   overflow: hidden;
-  margin-top: 10px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
 }
 .bar i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent2), var(--info));
+  background: linear-gradient(90deg, var(--accent), var(--info));
   border-radius: 99px;
 }
 .bar.warn i {
@@ -105,12 +101,11 @@ button.active {
   border: 1px solid var(--aiBorder);
   background: linear-gradient(180deg, var(--aiBg1), var(--aiBg2));
   border-radius: var(--radius-md);
-  padding: 18px;
+  padding: 16px;
 }
 .ai h3 {
   font-size: 15px;
   margin: 0 0 8px;
-  color: var(--accent);
 }
 .ai p {
   font-size: 13px;
@@ -128,16 +123,16 @@ button.active {
 .row-form select {
   flex: 1;
   min-width: 120px;
-  background: #0a0f26;
+  background: #fff;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--text);
   padding: 12px;
 }
 .flash {
   background: var(--success-bg);
   border: 1px solid var(--accent2);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 12px 14px;
   font-size: 13px;
 }
@@ -157,16 +152,19 @@ button.active {
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 99px;
-  background: #0a0f26;
-  border: 1px solid var(--accent);
+  background: var(--bg2);
+  border: 1px solid var(--border);
   color: var(--muted);
   white-space: nowrap;
 }
 .txn.clickable {
   cursor: pointer;
 }
+.txn.clickable:hover span:first-child {
+  color: var(--accent);
+}
 
-/* Slim brand bar */
+/* Brand bar */
 .topnav {
   display: flex;
   align-items: center;
@@ -175,7 +173,7 @@ button.active {
   margin-bottom: 4px;
   position: sticky;
   top: 0;
-  background: rgba(10, 14, 31, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(10px);
   z-index: 10;
 }
@@ -184,26 +182,44 @@ button.active {
   font-size: 20px;
   text-decoration: none;
   color: var(--text);
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 .brand span {
   color: var(--accent);
 }
 .links {
-  display: none;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.links a:hover {
+  background: var(--bg2);
+  color: var(--text);
+}
+.links a.on {
+  background: var(--accent);
+  color: #fff;
 }
 .install-btn {
-  background: linear-gradient(135deg, var(--accent), #a8861f);
-  color: #1a1405;
+  background: var(--accent);
+  color: #fff;
   border: 0;
   border-radius: 99px;
   padding: 10px 18px;
   font-size: 14px;
   white-space: nowrap;
-  margin-left: auto;
 }
 
-/* Greeting + gold balance */
+/* Greeting + balance */
 .greet {
   display: flex;
   align-items: center;
@@ -214,35 +230,31 @@ button.active {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), #70560f);
-  color: #1a1405;
+  background: var(--accent);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
   font-size: 20px;
-  border: 2px solid rgba(212, 175, 55, 0.5);
 }
 .balance-card {
-  background:
-    radial-gradient(240px 120px at 85% 0%, rgba(212, 175, 55, 0.35), transparent 60%),
-    linear-gradient(135deg, #171032, #2b1d63 60%, #123b38);
+  background: linear-gradient(135deg, #2e1065, #5b21b6 60%, #7c3aed);
   color: #fff;
-  border: 1px solid rgba(212, 175, 55, 0.45);
-  border-radius: 24px;
+  border: 0;
+  border-radius: 20px;
   padding: 24px;
   margin-bottom: 12px;
 }
 .balance-card small {
-  color: var(--accent);
-  font-weight: 700;
+  color: #ede9fe;
 }
 .balance-card .v {
   color: #fff;
-  font-size: 36px;
+  font-size: 32px;
 }
 .balance-card .d {
-  color: #c9cdf2;
+  color: #e6e1fb;
 }
 .balance-actions {
   display: grid;
@@ -251,10 +263,10 @@ button.active {
   margin-top: 16px;
 }
 .balance-actions button {
-  background: rgba(212, 175, 55, 0.12);
-  border: 1px solid rgba(212, 175, 55, 0.5);
-  color: var(--accent);
-  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  border-radius: 12px;
   padding: 12px 6px;
   font-size: 13px;
 }
@@ -267,21 +279,21 @@ button.active {
 .quick button {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 16px 4px;
+  border-radius: 14px;
+  padding: 14px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   color: var(--text);
-  font-size: 11px;
+  font-size: 12px;
 }
 .quick .qi {
-  font-size: 26px;
+  font-size: 24px;
 }
 .services {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 .svc {
@@ -298,7 +310,7 @@ button.active {
   margin-bottom: 6px;
 }
 .svc .v.sm {
-  font-size: 13px;
+  font-size: 14px;
 }
 .link-card {
   text-align: left;
@@ -313,31 +325,26 @@ button.active {
   font-size: 28px;
   margin-bottom: 8px;
 }
-.txn.clickable:hover span:first-child {
-  color: var(--accent);
-}
 
-/* Bottom tabs = primary nav */
+/* Bottom tab bar (mobile) */
 .tabbar {
-  display: flex;
+  display: none;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(13, 18, 45, 0.97);
+  background: rgba(255, 255, 255, 0.96);
   border-top: 1px solid var(--border);
   padding: 10px 4px calc(10px + env(safe-area-inset-bottom));
   z-index: 20;
   backdrop-filter: blur(10px);
-  max-width: 480px;
-  margin: 0 auto;
 }
 .tabbar button {
   flex: 1;
   background: none;
   border: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -349,12 +356,23 @@ button.active {
   color: var(--accent);
 }
 .tabbar .ti {
-  font-size: 24px;
+  font-size: 22px;
 }
 
-/* Wider screens: centered phone column */
-@media (min-width: 900px) {
+@media (max-width: 900px) {
   .grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+  }
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+  .links {
+    display: none;
+  }
+  .tabbar {
+    display: flex;
+  }
+  .services {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
