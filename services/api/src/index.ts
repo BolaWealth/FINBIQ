@@ -110,6 +110,7 @@ createServer(async (req, res) => {
         fromWalletId: b.fromWalletId,
         toWalletId: b.toWalletId,
         amount: String(b.amount ?? ""),
+        category: typeof b.category === "string" && b.category ? b.category.slice(0, 60) : undefined,
         createdBy: b.createdBy ?? null,
       });
       return json(res, out.deduped ? 200 : 201, out);

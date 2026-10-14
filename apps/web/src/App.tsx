@@ -64,6 +64,7 @@ export default function App() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [spent, setSpent] = useState("0");
+  const [spendByCat, setSpendByCat] = useState<Record<string, string>>({});
   const [notices, setNotices] = useState<Notice[]>([]);
   const [history, setHistory] = useState<Transfer[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
@@ -116,7 +117,10 @@ export default function App() {
       .catch(() => {});
     fetch(`${API}/v1/budgets/spend?owner=${owner}`)
       .then((r) => r.json())
-      .then((j) => setSpent(j.spent ?? "0"))
+      .then((j) => {
+        setSpent(j.spent ?? "0");
+        if (j.byCategory) setSpendByCat(j.byCategory);
+      })
       .catch(() => {});
     fetch(`${API}/v1/notifications?owner=${owner}`)
       .then((r) => r.json())
@@ -236,7 +240,8 @@ export default function App() {
   };
 
   const food = budgets.find((b) => b.category === "Food");
-  const foodPct = food ? Math.min(100, (Number(spent) / Number(food.limit_amount)) * 100) : 0;
+  const foodSpent = Number(spendByCat["Food"] ?? 0);
+  const foodPct = food ? Math.min(100, (foodSpent / Number(food.limit_amount)) * 100) : 0;
 
   return (
     <main className="page">
@@ -292,7 +297,7 @@ export default function App() {
             <div className="card">
               <small>Budget — Food · {food?.period ?? "monthly"}</small>
               <div className="v sm">
-                {food ? `${fmt(spent)} / ${fmt(food.limit_amount)}` : "no budget"}
+                {food ? `${fmt(foodSpent)} / ${fmt(food.limit_amount)}` : "no budget"}
               </div>
               <div className="bar warn">
                 <i style={{ width: `${foodPct}%` }} />
@@ -303,12 +308,14 @@ export default function App() {
               className="card"
               onSubmit={(e) => {
                 e.preventDefault();
-                const amt = new FormData(e.currentTarget).get("amount") as string;
+                const f = new FormData(e.currentTarget);
+                const amt = f.get("amount") as string;
                 run(
                   () => post("/v1/transfers", {
                     idempotencyKey: crypto.randomUUID(),
                     fromWalletId: WALLET_A, toWalletId: WALLET_B,
-                    amount: amt, createdBy: owner,
+                    amount: amt, category: (f.get("category") as string) || "General",
+                    createdBy: owner,
                   }),
                   `Transferred ${fmt(amt)}`
                 );
@@ -318,6 +325,7 @@ export default function App() {
               <small>Send money (A → B)</small>
               <div className="row-form">
                 <input name="amount" placeholder="Amount" inputMode="decimal" required />
+                <input name="category" placeholder="Category" defaultValue="General" />
                 <button type="submit">Send</button>
               </div>
             </form>
@@ -435,15 +443,14 @@ export default function App() {
           <h1>Budgets</h1>
           <div className="grid">
             {budgets.map((b) => {
-              const pct = b.category === "Food"
-                ? (food ? foodPct : 0)
-                : 0;
+              const catSpent = Number(spendByCat[b.category ?? ""] ?? 0);
+              const pct = Number(b.limit_amount) > 0 ? Math.min(100, (catSpent / Number(b.limit_amount)) * 100) : 0;
               return (
                 <div className="card" key={b.id}>
                   <small>{b.category ?? "Budget"} · {b.period}</small>
-                  <div className="v sm">{b.category === "Food" ? `${fmt(spent)} / ${fmt(b.limit_amount)}` : `${fmt(b.limit_amount)} limit`}</div>
+                  <div className="v sm">{`${fmt(catSpent)} / ${fmt(b.limit_amount)}`}</div>
                   <div className="bar warn"><i style={{ width: `${pct}%` }} /></div>
-                  <div className="d warn-t">{b.category === "Food" ? `${pct.toFixed(0)}% used · live spend` : "spend tracking per category lands next"}</div>
+                  <div className="d warn-t">{`${pct.toFixed(0)}% used · live spend`}</div>
                 </div>
               );
             })}

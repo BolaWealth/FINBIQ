@@ -43,6 +43,14 @@ describe("budgets", () => {
     assert.ok(Number(spent) >= 0);
   });
 
+  it("spend tracks per category across all outflows", async () => {
+    const key = `t-${Date.now()}-d`;
+    await postTransfer({ idempotencyKey: key, fromWalletId: A, toWalletId: B, amount: "500", category: "TestSpend", createdBy: null });
+    const { spent, byCategory } = await budgetSpend("demo-user-1");
+    assert.ok(Number(spent) >= 500);
+    assert.ok(Number(byCategory["TestSpend"] ?? 0) >= 500);
+  });
+
   it("insights cite real numbers only", async () => {
     const lines = await insights("demo-user-1");
     assert.ok(lines.length > 0);

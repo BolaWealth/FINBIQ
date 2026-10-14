@@ -7,6 +7,7 @@ type PostTransferInput = {
   fromWalletId: string;
   toWalletId: string;
   amount: string;
+  category?: string;
   createdBy: string | null;
 };
 
@@ -24,9 +25,9 @@ export async function postTransfer(t: PostTransferInput) {
 
     const transfer = (
       await client.query(
-        `INSERT INTO transfers (idempotency_key, from_wallet_id, to_wallet_id, amount, created_by)
-         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-        [t.idempotencyKey, t.fromWalletId, t.toWalletId, t.amount, t.createdBy]
+        `INSERT INTO transfers (idempotency_key, from_wallet_id, to_wallet_id, amount, category, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+        [t.idempotencyKey, t.fromWalletId, t.toWalletId, t.amount, t.category || "General", t.createdBy]
       )
     ).rows[0];
 

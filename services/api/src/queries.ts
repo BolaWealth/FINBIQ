@@ -49,15 +49,30 @@ export async function createBudget(ownerUserId: string, categoryName: string, li
   return { id: b.id, category: categoryName, limitAmount, period };
 }
 
-// Demo spend rule: sum of completed outgoing transfers from owner's wallets.
+// Spend per category across ALL outflows: transfers (own category),
+// bills (own category), airtime/data (kind as category). Completed only.
 export async function budgetSpend(ownerUserId: string) {
   const r = await pool.query(
-    `SELECT COALESCE(SUM(t.amount),0) AS spent
-     FROM transfers t JOIN wallets w ON w.id = t.from_wallet_id
-     WHERE w.owner_user_id = $1 AND t.status = 'completed'`,
+    `SELECT category, SUM(amount) AS spent FROM (
+       SELECT t.category, t.amount FROM transfers t
+       JOIN wallets w ON w.id = t.from_wallet_id
+       WHERE w.owner_user_id = $1 AND t.status = 'completed'
+       UNION ALL
+       SELECT b.category, b.amount FROM bills b
+       WHERE b.owner_user_id = $1 AND b.status = 'completed'
+       UNION ALL
+       SELECT INITCAP(a.kind) AS category, a.amount FROM airtime_purchases a
+       WHERE a.owner_user_id = $1 AND a.status = 'completed'
+     ) s GROUP BY category`,
     [ownerUserId]
   );
-  return { spent: r.rows[0].spent };
+  const byCategory: Record<string, string> = {};
+  let total = 0;
+  for (const row of r.rows) {
+    byCategory[row.category] = row.spent;
+    total += Number(row.spent);
+  }
+  return { spent: String(total), byCategory };
 }
 
 export async function createSavingsGoal(ownerUserId: string, name: string, targetAmount: string, targetDate: string | null) {
