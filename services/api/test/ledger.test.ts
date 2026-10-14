@@ -3,7 +3,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { postTransfer } from "../src/ledger.js";
-import { createBudget, budgetSpend, insights, setPref, getPrefs, createNotification, createSavingsGoal, contributeToGoal, withdrawFromGoal, payBill, listBills, buyAirtime, listAirtime, redeemCashback, rewardPoints } from "../src/queries.js";
+import { pool } from "../src/auth.js";
+import { createBudget, budgetSpend, insights, setPref, getPrefs, createNotification, createSavingsGoal, contributeToGoal, withdrawFromGoal, payBill, listBills, buyAirtime, listAirtime, redeemCashback, rewardPoints, fundWallet } from "../src/queries.js";
 
 const A = "11111111-1111-1111-1111-111111111111";
 const B = "22222222-2222-2222-2222-222222222222";
@@ -133,5 +134,24 @@ describe("redemption", () => {
   it("rejects below-minimum and insufficient balances", async () => {
     await assert.rejects(redeemCashback("demo-user-1", 50), /minimum/);
     await assert.rejects(redeemCashback("demo-user-1", 999999999), /not enough/);
+  });
+});
+
+describe("money alerts", () => {
+  it("fires low-balance alert once per day", async () => {
+    const uid = `alert-tester-${Date.now()}`;
+    await pool.query(`INSERT INTO "user" (id, name, email) VALUES ($1,'Alert Tester',$2)`, [uid, `${uid}@t.local`]);
+    const w = await pool.query(`INSERT INTO wallets (owner_user_id) VALUES ($1) RETURNING id`, [uid]);
+    const wid = w.rows[0].id as string;
+    await fundWallet(wid, "3000", "cash", uid);
+    const b = await pool.query(
+      `INSERT INTO wallets (owner_user_id) VALUES ('demo-user-1') RETURNING id`
+    );
+    await postTransfer({ idempotencyKey: `t-${Date.now()}-e`, fromWalletId: wid, toWalletId: b.rows[0].id, amount: "2500", category: "General", createdBy: uid });
+    const n1 = await pool.query(`SELECT count(*) AS n FROM notifications WHERE user_id = $1 AND title = 'Low balance alert'`, [uid]);
+    assert.equal(Number(n1.rows[0].n), 1);
+    await postTransfer({ idempotencyKey: `t-${Date.now()}-f`, fromWalletId: wid, toWalletId: b.rows[0].id, amount: "100", category: "General", createdBy: uid });
+    const n2 = await pool.query(`SELECT count(*) AS n FROM notifications WHERE user_id = $1 AND title = 'Low balance alert'`, [uid]);
+    assert.equal(Number(n2.rows[0].n), 1);
   });
 });

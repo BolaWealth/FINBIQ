@@ -1,6 +1,7 @@
 // FINBIQ ledger helper v0.1.0 — double-entry post with idempotency.
 // Uses services/api/db/schema.sql tables: transfers, journal_entries, journal_lines.
 import { pool } from "./auth.js";
+import { moneyAlerts } from "./queries.js";
 
 type PostTransferInput = {
   idempotencyKey: string;
@@ -48,6 +49,8 @@ export async function postTransfer(t: PostTransferInput) {
 
     await client.query("UPDATE transfers SET status='completed', entry_id=$1 WHERE id=$2", [entry.id, transfer.id]);
     await client.query("COMMIT");
+    // Alerts after commit so the new balance is visible.
+    if (t.createdBy) await moneyAlerts(t.createdBy, t.fromWalletId).catch(() => {});
     return { deduped: false, id: transfer.id, status: "completed", entryId: entry.id };
   } catch (e) {
     await client.query("ROLLBACK");

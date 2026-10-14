@@ -123,6 +123,7 @@ export async function withdrawFromGoal(ownerUserId: string, goalId: string, wall
       [entry.id, walletId, amount, equity]
     );
     await client.query("COMMIT");
+    await moneyAlerts(ownerUserId, walletId).catch(() => {});
     return { goalId, amount };
   } catch (e) {
     await client.query("ROLLBACK");
@@ -310,6 +311,43 @@ export async function awardPoints(userId: string, points: number, reason: string
   await pool.query(`INSERT INTO rewards_points (user_id, points, reason) VALUES ($1,$2,$3)`, [userId, points, reason]);
 }
 
+const LOW_BALANCE_THRESHOLD = 10000;
+
+// Fires low-balance + budget-milestone alerts after an outflow.
+// Deduped: same title unread in last 24h → skip. Respects user prefs.
+export async function moneyAlerts(ownerUserId: string, walletId: string) {
+  const recent = async (title: string) => {
+    const r = await pool.query(
+      `SELECT 1 FROM notifications WHERE user_id = $1 AND title = $2 AND read_at IS NULL
+       AND created_at > now() - INTERVAL '24 hours' LIMIT 1`,
+      [ownerUserId, title]
+    );
+    return (r.rowCount ?? 0) > 0;
+  };
+  const bal = await pool.query(`SELECT balance FROM wallet_balances WHERE wallet_id = $1`, [walletId]);
+  const balance = Number(bal.rows[0]?.balance ?? 0);
+  if (balance < LOW_BALANCE_THRESHOLD) {
+    const title = "Low balance alert";
+    if (!(await recent(title))) {
+      await createNotification(ownerUserId, "low_balance", title, `Wallet balance is ${balance} NGN (below 10000 NGN).`);
+    }
+  }
+  const budgets = await listBudgets(ownerUserId);
+  const { byCategory } = await budgetSpend(ownerUserId);
+  for (const b of budgets) {
+    const limit = Number(b.limit_amount);
+    if (limit <= 0) continue;
+    const pct = (Number(byCategory[b.category ?? ""] ?? 0) / limit) * 100;
+    const milestone = pct >= 100 ? 100 : pct >= 75 ? 75 : 0;
+    if (milestone) {
+      const title = `${b.category} budget at ${milestone}%`;
+      if (!(await recent(title))) {
+        await createNotification(ownerUserId, "budget", title, `You have used ${pct.toFixed(0)}% of your ${b.category} budget.`);
+      }
+    }
+  }
+}
+
 // Redemption: 1 pt = ₦1 cashback credited to the user's first wallet.
 // Minimum 100 pts. Real ledger posting, fully local.
 export async function redeemCashback(ownerUserId: string, points: number) {
@@ -450,6 +488,7 @@ export async function payBill(ownerUserId: string, walletId: string, biller: str
       [ownerUserId, `Paid ${biller}`, `${amount} recorded under ${category || "Bills"}`]
     );
     await client.query("COMMIT");
+    await moneyAlerts(ownerUserId, walletId).catch(() => {});
     return { id: bill.id, biller, amount };
   } catch (e) {
     await client.query("ROLLBACK");
@@ -542,6 +581,7 @@ export async function buyAirtime(
       [ownerUserId, `${kind} purchase`, `${network} ${phone} — ${amount}`]
     );
     await client.query("COMMIT");
+    await moneyAlerts(ownerUserId, walletId).catch(() => {});
     return { id: p.id, kind, network, phone, amount, demo: true };
   } catch (e) {
     await client.query("ROLLBACK");
