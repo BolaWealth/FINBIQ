@@ -3,7 +3,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { postTransfer } from "../src/ledger.js";
-import { createBudget, budgetSpend, insights, setPref, getPrefs, createNotification, createSavingsGoal, contributeToGoal, withdrawFromGoal } from "../src/queries.js";
+import { createBudget, budgetSpend, insights, setPref, getPrefs, createNotification, createSavingsGoal, contributeToGoal, withdrawFromGoal, payBill, listBills, buyAirtime, listAirtime, redeemCashback, rewardPoints } from "../src/queries.js";
 
 const A = "11111111-1111-1111-1111-111111111111";
 const B = "22222222-2222-2222-2222-222222222222";
@@ -94,5 +94,44 @@ describe("locked savings", () => {
       withdrawFromGoal("demo-user-1", g.id, "11111111-1111-1111-1111-111111111111", "99999"),
       /insufficient/
     );
+  });
+});
+
+describe("bills and airtime", () => {
+  it("rejects bad bill input", async () => {
+    await assert.rejects(payBill("demo-user-1", "11111111-1111-1111-1111-111111111111", "", "Bills", "100"), /biller/);
+    await assert.rejects(payBill("demo-user-1", "11111111-1111-1111-1111-111111111111", "EKEDC", "Bills", "0"), /> 0/);
+  });
+
+  it("pays bills and lists them", async () => {
+    const b = await payBill("demo-user-1", "11111111-1111-1111-1111-111111111111", "TestBiller", "Utilities", "750");
+    assert.ok(b.id);
+    const list = await listBills("demo-user-1");
+    assert.ok(list.some((x) => x.id === b.id));
+  });
+
+  it("rejects bad airtime input", async () => {
+    await assert.rejects(
+      buyAirtime("demo-user-1", "11111111-1111-1111-1111-111111111111", "airtime", "MTN", "abc", "100"),
+      /phone/
+    );
+    await assert.rejects(
+      buyAirtime("demo-user-1", "11111111-1111-1111-1111-111111111111", "sms", "MTN", "08031234567", "100"),
+      /kind/
+    );
+  });
+
+  it("buys airtime and lists it", async () => {
+    const p = await buyAirtime("demo-user-1", "11111111-1111-1111-1111-111111111111", "data", "Glo", "08051234567", "500");
+    assert.equal(p.kind, "data");
+    const list = await listAirtime("demo-user-1");
+    assert.ok(list.some((x) => x.id === p.id));
+  });
+});
+
+describe("redemption", () => {
+  it("rejects below-minimum and insufficient balances", async () => {
+    await assert.rejects(redeemCashback("demo-user-1", 50), /minimum/);
+    await assert.rejects(redeemCashback("demo-user-1", 999999999), /not enough/);
   });
 });
