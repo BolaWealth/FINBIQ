@@ -410,6 +410,9 @@ export default function App() {
             <small>All money movement — transfers, bills, airtime, funding</small>
             <div className="row-form" style={{ marginTop: 8, marginBottom: 8 }}>
               <input placeholder="Search amount, status or type…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <a href={`${API}/v1/activity/export?owner=${owner}`} download="finbiq-statement.csv">
+                <button type="button">⬇ CSV</button>
+              </a>
             </div>
             {activity
               .filter((t) => !query || t.amount.includes(query) || t.status.includes(query.toLowerCase()) || t.kind.includes(query.toLowerCase()) || t.label.toLowerCase().includes(query.toLowerCase()))

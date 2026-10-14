@@ -500,6 +500,23 @@ createServer(async (req, res) => {
     }
   }
 
+  if (req.method === "GET" && url.pathname === "/v1/activity/export") {
+    try {
+      const rows = await listActivity(url.searchParams.get("owner") ?? "");
+      const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const csv = ["id,kind,label,amount,status,created_at",
+        ...rows.map((r) => [r.id, r.kind, esc(r.label), r.amount, r.status, new Date(r.created_at).toISOString()].join(","))].join("\n");
+      res.writeHead(200, {
+        "content-type": "text/csv",
+        "content-disposition": 'attachment; filename="finbiq-statement.csv"',
+        ...cors,
+      });
+      return res.end(csv);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "export_failed" });
+    }
+  }
+
   if (req.method === "GET" && url.pathname === "/v1/metrics") {
     try {
       return json(res, 200, await platformMetrics());
