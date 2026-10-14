@@ -21,7 +21,8 @@ type InvestItem = { id: string; name: string; risk: string; minAmount: number; n
 
 type Page =
   | "wallet" | "history" | "budgets" | "savings" | "bills" | "airtime"
-  | "loans" | "invest" | "business" | "reports" | "account";
+  | "loans" | "invest" | "business" | "reports" | "account"
+  | "esusu" | "family" | "merchant" | "ussd";
 
 const PAGES: { id: Page; label: string; emoji: string; blurb: string }[] = [
   { id: "wallet", label: "Wallet", emoji: "👛", blurb: "Balance, send money, live from your ledger." },
@@ -30,6 +31,10 @@ const PAGES: { id: Page; label: string; emoji: string; blurb: string }[] = [
   { id: "savings", label: "Savings", emoji: "💰", blurb: "Goals, progress, earn FINBIQ Points." },
   { id: "bills", label: "Bills", emoji: "📃", blurb: "Pay billers, categorized, notified." },
   { id: "airtime", label: "Airtime", emoji: "📱", blurb: "Top up airtime and data instantly." },
+  { id: "esusu", label: "Esusu", emoji: "🤝", blurb: "Rotating group savings, ledger-enforced." },
+  { id: "family", label: "Family", emoji: "👨‍👩‍👧", blurb: "Kids wallets with daily spend caps." },
+  { id: "merchant", label: "Sell", emoji: "🏪", blurb: "Payment links for market traders." },
+  { id: "ussd", label: "USSD", emoji: "*️⃣", blurb: "No-data menu simulator (*384#)." },
   { id: "loans", label: "Loans", emoji: "🏦", blurb: "Affordability estimate from your activity." },
   { id: "invest", label: "Investments", emoji: "📈", blurb: "Learn the options, risks clearly labeled." },
   { id: "business", label: "Business", emoji: "🏢", blurb: "Business wallets, budgets, upcoming payments." },
@@ -84,6 +89,13 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [prefs, setPrefs] = useState<{ type: string; enabled: boolean }[]>([]);
   const [members, setMembers] = useState<Record<string, { who: string; total: string }[]>>({});
+  const [forecast, setForecast] = useState<{ runwayDays: number; message: string } | null>(null);
+  const [score, setScore] = useState<{ score: number } | null>(null);
+  const [circles, setCircles] = useState<{ id: string; name: string; amount: string; current_round: number; members: string }[]>([]);
+  const [famWallets, setFamWallets] = useState<{ id: string; label: string; balance: string; allowance: string }[]>([]);
+  const [links, setLinks] = useState<{ code: string; label: string; amount: string | null }[]>([]);
+  const [catResult, setCatResult] = useState<{ category: string; amount: string | null; merchant: string | null; engine: string } | null>(null);
+  const [askQ, setAskQ] = useState("");
   const [msg, setMsg] = useState("");
 
   const owner = uid ?? OWNER;
@@ -186,6 +198,26 @@ export default function App() {
     fetch(`${API}/v1/notifications/prefs?owner=${owner}`)
       .then((r) => r.json())
       .then((j) => Array.isArray(j) && setPrefs(j))
+      .catch(() => {});
+    fetch(`${API}/v1/forecast?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => j.runwayDays !== undefined && setForecast(j))
+      .catch(() => {});
+    fetch(`${API}/v1/score?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => j.score !== undefined && setScore(j))
+      .catch(() => {});
+    fetch(`${API}/v1/esusu?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setCircles(j))
+      .catch(() => {});
+    fetch(`${API}/v1/family/wallets?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setFamWallets(j))
+      .catch(() => {});
+    fetch(`${API}/v1/merchant/links?owner=${owner}`)
+      .then((r) => r.json())
+      .then((j) => Array.isArray(j) && setLinks(j))
       .catch(() => {});
   }, [owner, bizId]);
 
@@ -394,12 +426,88 @@ export default function App() {
                 } catch (err) {
                   setMsg(err instanceof Error ? err.message : "failed");
                 }
+                setAskQ("");
                 e.currentTarget.reset();
               }}
             >
-              <input name="q" placeholder="Ask about your money…" required />
+              <input name="q" placeholder="Ask about your money…" required value={askQ} onChange={(e) => setAskQ(e.target.value)} />
               <button type="submit">Ask</button>
+              <button
+                type="button"
+                title="Speak instead of typing"
+                onClick={() => {
+                  const SR = (window as unknown as { webkitSpeechRecognition?: new () => {
+                    lang: string; onresult: ((e: { results: { transcript: string }[][] }) => void) | null;
+                    onerror: (() => void) | null; start: () => void;
+                  } }).webkitSpeechRecognition;
+                  if (!SR) return setMsg("Voice input needs Chrome or Edge.");
+                  const rec = new SR();
+                  rec.lang = "en-NG";
+                  rec.onresult = (e) => {
+                    const said = e.results[0][0].transcript;
+                    setAskQ(said);
+                    setMsg(`Heard: “${said}” — press Ask.`);
+                  };
+                  rec.onerror = () => setMsg("Could not hear you — try again.");
+                  rec.start();
+                  setMsg("Listening… speak now.");
+                }}
+              >
+                🎤
+              </button>
             </form>
+            <form
+              className="row-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const file = (new FormData(e.currentTarget).get("receipt") as File | null);
+                if (!file) return;
+                setMsg("Reading receipt…");
+                const b64 = await new Promise<string>((resolve) => {
+                  const r = new FileReader();
+                  r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+                  r.readAsDataURL(file);
+                });
+                try {
+                  const j = await post("/v1/ai/categorize", { imageBase64: b64 }) as
+                    { category: string; amount: string | null; merchant: string | null; engine: string };
+                  setCatResult(j);
+                  setMsg(j.amount
+                    ? `Receipt: ${j.merchant ?? "unknown"} — ${fmt(j.amount)} → ${j.category} (${j.engine}). Tap below to budget it.`
+                    : `Receipt looks like ${j.category} (${j.engine}).`);
+                } catch (err) {
+                  setMsg(err instanceof Error ? err.message : "failed");
+                }
+              }}
+            >
+              <input name="receipt" type="file" accept="image/*" />
+              <button type="submit">📷 Read receipt</button>
+            </form>
+            {catResult && (
+              <div className="d">
+                {catResult.category}{catResult.amount ? ` · ${fmt(catResult.amount)}` : ""}{" "}
+                <a href="#" onClick={(e) => {
+                  e.preventDefault();
+                  run(() => post("/v1/budgets", {
+                    ownerUserId: owner, category: catResult.category,
+                    limitAmount: catResult.amount ?? "50000",
+                  }), `Budget created for ${catResult.category}`);
+                }}>＋ budget it</a>
+              </div>
+            )}
+          </div>
+
+          <div className="grid2">
+            <div className="card">
+              <small>FINBIQ Score</small>
+              <div className="v">{score ? score.score : "…"}</div>
+              <div className="d">300–850 from your real behavior</div>
+            </div>
+            <div className="card">
+              <small>Cash forecast — 30 days</small>
+              <div className="v sm">{forecast ? `${forecast.runwayDays} days runway` : "…"}</div>
+              <div className="d">{forecast?.message ?? ""}</div>
+            </div>
           </div>
         </>
       )}
@@ -809,6 +917,157 @@ export default function App() {
                 <div className="d">loading…</div>
               )}
             </div>
+          </div>
+        </>
+      )}
+
+      {page === "esusu" && (
+        <>
+          <h1>Esusu circles</h1>
+          <form
+            className="card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              run(() => post("/v1/esusu", {
+                ownerUserId: owner, name: f.get("name") as string, amount: f.get("amount") as string,
+              }), "Circle created — you are member #1");
+              e.currentTarget.reset();
+            }}
+          >
+            <small>Start a circle (fixed amount per round)</small>
+            <div className="row-form">
+              <input name="name" placeholder="Circle name" required />
+              <input name="amount" placeholder="Amount per round" inputMode="decimal" required />
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          {circles.map((c) => (
+            <div className="card" key={c.id} style={{ marginTop: 12 }}>
+              <small>{c.name} · round {c.current_round} · {c.members} members</small>
+              <div className="v sm">{fmt(c.amount)} each</div>
+              <div className="row-form">
+                <button
+                  onClick={() => run(() => post(`/v1/esusu/${c.id}/contribute`, { userId: owner, fromWalletId: WALLET_A }), "Round contribution paid")}
+                >
+                  Pay this round
+                </button>
+                <button
+                  onClick={() => run(async () => {
+                    const j = await post(`/v1/esusu/${c.id}/advance`, {}) as { winner: string; payout: number };
+                    return j;
+                  }, "Round advanced — pot paid out")}
+                >
+                  Advance round
+                </button>
+              </div>
+              <div className="d">Advance pays the full pot to the next member when everyone has contributed.</div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {page === "family" && (
+        <>
+          <h1>Family wallets</h1>
+          <form
+            className="card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              run(() => post("/v1/family/wallets", {
+                ownerUserId: owner, label: f.get("label") as string,
+                allowance: (f.get("allowance") as string) || "0",
+                spendCap: (f.get("cap") as string) || null,
+              }), "Family wallet created");
+              e.currentTarget.reset();
+            }}
+          >
+            <small>New child wallet with daily spend cap</small>
+            <div className="row-form">
+              <input name="label" placeholder="Name e.g. Adaeze" required />
+              <input name="allowance" placeholder="Allowance" inputMode="decimal" />
+              <input name="cap" placeholder="Daily cap" inputMode="decimal" />
+              <button type="submit">Create</button>
+            </div>
+          </form>
+          <div className="grid" style={{ marginTop: 12 }}>
+            {famWallets.map((w) => (
+              <div className="card" key={w.id}>
+                <small>{w.label}</small>
+                <div className="v sm">{fmt(w.balance)}</div>
+                <div className="d">allowance {fmt(w.allowance)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {page === "merchant" && (
+        <>
+          <h1>Sell — payment links</h1>
+          <form
+            className="card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              run(() => post("/v1/merchant/links", {
+                ownerUserId: owner, label: f.get("label") as string, amount: (f.get("amount") as string) || null,
+              }), "Payment link created");
+              e.currentTarget.reset();
+            }}
+          >
+            <small>New payment link</small>
+            <div className="row-form">
+              <input name="label" placeholder="What are you selling?" required />
+              <input name="amount" placeholder="Amount (optional)" inputMode="decimal" />
+              <button type="submit">Create link</button>
+            </div>
+          </form>
+          {links.map((l) => (
+            <div className="card" key={l.code} style={{ marginTop: 12 }}>
+              <small>{l.label} · {l.amount ? fmt(l.amount) : "open amount"}</small>
+              <div className="d">code: {l.code}</div>
+              <form
+                className="row-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  run(() => post(`/v1/merchant/pay/${l.code}`, { payerUserId: owner, fromWalletId: WALLET_A }), `Paid ${l.label}`);
+                }}
+              >
+                <button type="submit">Pay {l.amount ? fmt(l.amount) : ""} (demo)</button>
+              </form>
+            </div>
+          ))}
+        </>
+      )}
+
+      {page === "ussd" && (
+        <>
+          <h1>USSD simulator</h1>
+          <div className="card">
+            <small>*384# — works with the same backend (demo; live needs a telco aggregator)</small>
+            <div className="v sm">1. Balance: {balance === null ? "…" : fmt(balance)}</div>
+            <div className="v sm">2. Last transfer: {history[0] ? fmt(history[0].amount) : "none yet"}</div>
+            <div className="v sm">3. Points: {points}</div>
+            <form
+              className="row-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const amt = new FormData(e.currentTarget).get("amount") as string;
+                run(() => post("/v1/transfers", {
+                  idempotencyKey: crypto.randomUUID(),
+                  fromWalletId: WALLET_A, toWalletId: WALLET_B, amount: amt, category: "General", createdBy: owner,
+                }), `Sent ${fmt(amt)} via USSD menu`);
+                e.currentTarget.reset();
+              }}
+            >
+              <small>4. Send (option 4)</small>
+              <div className="row-form">
+                <input name="amount" placeholder="Amount" inputMode="decimal" required />
+                <button type="submit">Send</button>
+              </div>
+            </form>
           </div>
         </>
       )}

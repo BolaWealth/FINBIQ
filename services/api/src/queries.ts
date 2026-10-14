@@ -612,7 +612,293 @@ export async function listAirtime(ownerUserId: string) {
   return r.rows;
 }
 
-// ---- Deferred-list fix: business backend (tables already in schema.sql) ----
+// ---- Extraordinary features: esusu, family wallets, autopilot, merchant ----
+
+// Esusu: members contribute a fixed amount per round into a pot wallet;
+// when everyone has paid the round, advance() pays the whole pot to the
+// next member in rotation and opens the next round. Ledger-enforced.
+// Smart categorize: receipt photo (Gemini vision) or typed/voice text.
+export async function smartCategorize(input: { text?: string; imageBase64?: string }) {
+  const { geminiConfigured } = await import("./ai.js");
+  const text = (input.text ?? "").toLowerCase();
+  const ruleHit = ((): string | null => {
+    const pairs: [string, string][] = [
+      ["fuel", "Transport"], ["transport", "Transport"], ["uber", "Transport"],
+      ["food", "Food"], ["shoprite", "Food"], ["restaurant", "Food"],
+      ["netflix", "Bills"], ["dstv", "Bills"], ["electricity", "Bills"],
+      ["mtn", "Airtime"], ["airtel", "Airtime"], ["glo", "Airtime"], ["data", "Data"],
+      ["school", "Education"], ["rent", "Housing"], ["hospital", "Health"],
+    ];
+    for (const [kw, cat] of pairs) if (text.includes(kw)) return cat;
+    return null;
+  })();
+  if (!geminiConfigured()) {
+    return { category: ruleHit ?? "General", amount: null as string | null, merchant: null as string | null, engine: "rules" };
+  }
+  try {
+    const key = process.env.GEMINI_API_KEY!;
+    const model = process.env.GEMINI_MODEL ?? "gemini-3.5-flash";
+    const parts: ({ text: string } | { inline_data: { mime_type: string; data: string } })[] = [];
+    if (input.text) parts.push({ text: `Categorize this expense into one of: Transport, Food, Bills, Airtime, Data, Education, Housing, Health, Entertainment, Shopping, General. Reply ONLY JSON {"category","amount","merchant"} with amount as a plain number: ${input.text.slice(0, 500)}` });
+    if (input.imageBase64) {
+      parts.push({ text: `Read this receipt. Reply ONLY JSON {"category","amount","merchant"} with amount as a plain number.` });
+      parts.push({ inline_data: { mime_type: "image/jpeg", data: input.imageBase64.slice(0, 4_000_000) } });
+    }
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: "You are an expense parser. Reply with ONLY a JSON object, no other text." }] },
+        contents: [{ parts }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 256 },
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!r.ok) throw new Error(`gemini ${r.status}`);
+    const j = (await r.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const out = j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "{}";
+    const m = out.match(/\{[\s\S]*\}/);
+    try {
+      const parsed = JSON.parse(m ? m[0] : "{}") as { category?: string; amount?: string; merchant?: string };
+      return { category: parsed.category ?? ruleHit ?? "General", amount: parsed.amount ?? null, merchant: parsed.merchant ?? null, engine: "gemini" };
+    } catch {
+      return { category: ruleHit ?? "General", amount: null as string | null, merchant: null as string | null, engine: "rules-fallback" };
+    }
+  } catch {
+    return { category: ruleHit ?? "General", amount: null as string | null, merchant: null as string | null, engine: "rules-fallback" };
+  }
+}
+
+// 30-day cash forecast from recurring bills + average daily outflow vs balance.
+export async function cashForecast(ownerUserId: string) {
+  const w = await pool.query(`SELECT id FROM wallets WHERE owner_user_id = $1 AND business_id IS NULL ORDER BY created_at LIMIT 1`, [ownerUserId]);
+  if (!w.rowCount) return { runwayDays: 0, shortfallDate: null, note: "no wallet" };
+  const bal = await pool.query(`SELECT COALESCE(SUM(credit - debit),0) AS b FROM journal_lines WHERE wallet_id = $1`, [w.rows[0].id]);
+  const out30 = await pool.query(
+    `SELECT COALESCE(SUM(t.amount),0) AS s FROM transfers t WHERE t.from_wallet_id = $1 AND t.status = 'completed'
+     AND t.created_at > now() - INTERVAL '30 days'`, [w.rows[0].id]
+  );
+  const billsAvg = await pool.query(`SELECT COALESCE(AVG(amount),0) AS a, count(*) AS n FROM bills WHERE owner_user_id = $1`, [ownerUserId]);
+  const daily = Number(out30.rows[0].s) / 30 + Number(billsAvg.rows[0].a) / 30;
+  const balance = Number(bal.rows[0].b);
+  const runway = daily > 0 ? Math.floor(balance / daily) : 999;
+  const shortfall = runway < 30 ? new Date(Date.now() + runway * 864e5).toISOString().slice(0, 10) : null;
+  return {
+    balance, dailyBurn: Math.round(daily), recurringBills: Number(billsAvg.rows[0].n),
+    runwayDays: runway, shortfallDate: shortfall,
+    message: shortfall
+      ? `At current spending you run dry around ${shortfall}. Cut ~${Math.round((30 - runway) * daily / 30)} NGN/day to stretch to month-end.`
+      : "Spending pace is sustainable for the next 30 days.",
+  };
+}
+
+// Esusu: members contribute a fixed amount per round into a pot wallet;
+// when everyone has paid the round, advance() pays the whole pot to the
+// next member in rotation and opens the next round. Ledger-enforced.
+export async function createCircle(ownerUserId: string, name: string, amount: string) {
+  if (!name) throw new Error("name is required");
+  if (Number(amount) <= 0) throw new Error("amount must be > 0");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const w = (await client.query(`INSERT INTO wallets (owner_user_id) VALUES ($1) RETURNING id`, [ownerUserId])).rows[0];
+    const c = (
+      await client.query(`INSERT INTO esusu_circles (owner_user_id, name, amount, pot_wallet_id) VALUES ($1,$2,$3,$4) RETURNING id`,
+        [ownerUserId, name, amount, w.id])
+    ).rows[0];
+    await client.query(`INSERT INTO esusu_members (circle_id, user_id, display_name, payout_order) VALUES ($1,$2,$3,1)`,
+      [c.id, ownerUserId, "Organizer"]);
+    await client.query("COMMIT");
+    return { id: c.id, name, potWalletId: w.id };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function joinCircle(circleId: string, userId: string, displayName: string) {
+  const n = await pool.query(`SELECT COALESCE(MAX(payout_order),0)+1 AS o FROM esusu_members WHERE circle_id = $1`, [circleId]);
+  await pool.query(`INSERT INTO esusu_members (circle_id, user_id, display_name, payout_order) VALUES ($1,$2,$3,$4)
+    ON CONFLICT DO NOTHING`, [circleId, userId, displayName || "Member", n.rows[0].o]);
+  return { circleId, userId };
+}
+
+export async function circleContribute(circleId: string, userId: string, fromWalletId: string) {
+  const c = await pool.query(`SELECT * FROM esusu_circles WHERE id = $1 AND status = 'open'`, [circleId]);
+  if (!c.rowCount) throw new Error("circle not found or complete");
+  const m = await pool.query(`SELECT * FROM esusu_members WHERE circle_id = $1 AND user_id = $2`, [circleId, userId]);
+  if (!m.rowCount) throw new Error("not a member");
+  if (m.rows[0].paid_rounds >= c.rows[0].current_round) throw new Error("already paid this round");
+  const { postTransfer } = await import("./ledger.js");
+  await postTransfer({
+    idempotencyKey: `esusu-${circleId}-${c.rows[0].current_round}-${userId}`,
+    fromWalletId, toWalletId: c.rows[0].pot_wallet_id, amount: String(c.rows[0].amount), createdBy: userId,
+  });
+  await pool.query(`UPDATE esusu_members SET paid_rounds = paid_rounds + 1 WHERE circle_id = $1 AND user_id = $2`, [circleId, userId]);
+  return { round: c.rows[0].current_round };
+}
+
+export async function circleAdvance(circleId: string) {
+  const c = await pool.query(`SELECT * FROM esusu_circles WHERE id = $1 AND status = 'open'`, [circleId]);
+  if (!c.rowCount) throw new Error("circle not found or complete");
+  const circle = c.rows[0];
+  const members = (await pool.query(`SELECT * FROM esusu_members WHERE circle_id = $1 ORDER BY payout_order`, [circleId])).rows;
+  if (members.some((m) => m.paid_rounds < circle.current_round)) throw new Error("waiting on contributions");
+  const winner = members[(circle.current_round - 1) % members.length];
+  const pot = Number(circle.amount) * members.length;
+  const { postTransfer } = await import("./ledger.js");
+  const w = await pool.query(`SELECT id FROM wallets WHERE owner_user_id = $1 ORDER BY created_at LIMIT 1`, [winner.user_id]);
+  if (!w.rowCount) throw new Error("winner has no wallet");
+  await postTransfer({
+    idempotencyKey: `esusu-payout-${circleId}-${circle.current_round}`,
+    fromWalletId: circle.pot_wallet_id, toWalletId: w.rows[0].id, amount: String(pot), createdBy: winner.user_id,
+  });
+  await pool.query(`UPDATE esusu_circles SET current_round = current_round + 1 WHERE id = $1`, [circleId]);
+  return { round: circle.current_round, winner: winner.display_name, payout: pot };
+}
+
+export async function listCircles(ownerUserId: string) {
+  const r = await pool.query(
+    `SELECT c.*, (SELECT count(*) FROM esusu_members m WHERE m.circle_id = c.id) AS members FROM esusu_circles c
+     WHERE c.owner_user_id = $1 OR EXISTS (SELECT 1 FROM esusu_members m WHERE m.circle_id = c.id AND m.user_id = $1)
+     ORDER BY c.created_at DESC`,
+    [ownerUserId]
+  );
+  return r.rows;
+}
+
+// Family wallets: child wallet + daily spend cap, enforced on every send.
+export async function createFamilyWallet(ownerUserId: string, label: string, allowance: string, spendCap: string | null) {
+  if (!label) throw new Error("label is required");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const w = (await client.query(`INSERT INTO wallets (owner_user_id) VALUES ($1) RETURNING id`, [ownerUserId])).rows[0];
+    const f = (
+      await client.query(`INSERT INTO family_wallets (owner_user_id, wallet_id, label, allowance, spend_cap) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [ownerUserId, w.id, label, allowance || "0", spendCap || null])
+    ).rows[0];
+    await client.query("COMMIT");
+    return { id: f.id, walletId: w.id, label };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listFamilyWallets(ownerUserId: string) {
+  const r = await pool.query(
+    `SELECT f.*, COALESCE((SELECT SUM(credit - debit) FROM journal_lines l WHERE l.wallet_id = f.wallet_id),0) AS balance
+     FROM family_wallets f WHERE f.owner_user_id = $1`, [ownerUserId]
+  );
+  return r.rows;
+}
+
+export async function checkSpendCap(fromWalletId: string, amount: string) {
+  const f = await pool.query(`SELECT spend_cap FROM family_wallets WHERE wallet_id = $1`, [fromWalletId]);
+  if (!f.rowCount || f.rows[0].spend_cap === null) return;
+  const day = await pool.query(
+    `SELECT COALESCE(SUM(t.amount),0) AS s FROM transfers t
+     WHERE t.from_wallet_id = $1 AND t.status = 'completed' AND t.created_at > now() - INTERVAL '24 hours'`,
+    [fromWalletId]
+  );
+  if (Number(day.rows[0].s) + Number(amount) > Number(f.rows[0].spend_cap)) {
+    throw new Error(`daily cap ${f.rows[0].spend_cap} exceeded`);
+  }
+}
+
+// Autopilot: sweep everything above min_balance into a goal. Run on demand
+// (and the dashboard runs it when opened on Sundays).
+export async function createAutopilot(ownerUserId: string, goalId: string, minBalance: string) {
+  const r = await pool.query(
+    `INSERT INTO autopilot_rules (owner_user_id, goal_id, min_balance) VALUES ($1,$2,$3) RETURNING id`,
+    [ownerUserId, goalId, minBalance || "0"]
+  );
+  return { id: r.rows[0].id };
+}
+
+export async function listAutopilot(ownerUserId: string) {
+  const r = await pool.query(`SELECT * FROM autopilot_rules WHERE owner_user_id = $1`, [ownerUserId]);
+  return r.rows;
+}
+
+export async function runAutopilot(ownerUserId: string) {
+  const rules = await pool.query(`SELECT * FROM autopilot_rules WHERE owner_user_id = $1`, [ownerUserId]);
+  const out = [];
+  for (const rule of rules.rows) {
+    const w = await pool.query(`SELECT id FROM wallets WHERE owner_user_id = $1 AND business_id IS NULL ORDER BY created_at LIMIT 1`, [ownerUserId]);
+    if (!w.rowCount) continue;
+    const bal = await pool.query(`SELECT COALESCE(SUM(credit - debit),0) AS b FROM journal_lines WHERE wallet_id = $1`, [w.rows[0].id]);
+    const excess = Number(bal.rows[0].b) - Number(rule.min_balance);
+    if (excess > 0) {
+      const { contributeToGoal } = await import("./queries.js");
+      await contributeToGoal(rule.goal_id, String(Math.floor(excess)));
+      await pool.query(`UPDATE autopilot_rules SET last_run = now() WHERE id = $1`, [rule.id]);
+      out.push({ rule: rule.id, swept: Math.floor(excess) });
+    }
+  }
+  return out;
+}
+
+// Merchant payment links: anyone signed in can pay them from their wallet.
+export async function createPaymentLink(ownerUserId: string, label: string, amount: string | null) {
+  if (!label) throw new Error("label is required");
+  const code = "pay_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const r = await pool.query(`INSERT INTO payment_links (owner_user_id, code, label, amount) VALUES ($1,$2,$3,$4) RETURNING code`,
+    [ownerUserId, code, label, amount || null]);
+  return { code: r.rows[0].code };
+}
+
+export async function getPaymentLink(code: string) {
+  const r = await pool.query(`SELECT code, label, amount, status FROM payment_links WHERE code = $1`, [code]);
+  if (!r.rowCount) throw new Error("link not found");
+  return r.rows[0];
+}
+
+export async function payPaymentLink(code: string, payerUserId: string, fromWalletId: string) {
+  const link = await getPaymentLink(code);
+  if (link.status !== "open") throw new Error("link closed");
+  if (!link.amount) throw new Error("open-amount links need checkout (coming next)");
+  const w = await pool.query(`SELECT id FROM wallets WHERE owner_user_id = $1 AND business_id IS NULL ORDER BY created_at LIMIT 1`,
+    [(await pool.query(`SELECT owner_user_id FROM payment_links WHERE code = $1`, [code])).rows[0].owner_user_id]);
+  const { postTransfer } = await import("./ledger.js");
+  return postTransfer({
+    idempotencyKey: `link-${code}-${payerUserId}-${Date.now()}`,
+    fromWalletId, toWalletId: w.rows[0].id, amount: String(link.amount), createdBy: payerUserId,
+  });
+}
+
+export async function listPaymentLinks(ownerUserId: string) {
+  const r = await pool.query(`SELECT code, label, amount, status FROM payment_links WHERE owner_user_id = $1 ORDER BY created_at DESC`, [ownerUserId]);
+  return r.rows;
+}
+
+// FINBIQ Score 300–850 from behavior: savings rate, budget adherence,
+// bill reliability, tenure. Grows only from real activity.
+export async function finbiqScore(ownerUserId: string) {
+  const s = await financeSummary(ownerUserId);
+  const goals = await listSavingsGoals(ownerUserId);
+  const budgets = await listBudgets(ownerUserId);
+  const { byCategory } = await budgetSpend(ownerUserId);
+  const bills = await pool.query(`SELECT count(*) AS n FROM bills WHERE owner_user_id = $1 AND status = 'completed'`, [ownerUserId]);
+  const tenure = await pool.query(`SELECT EXTRACT(DAY FROM now() - MIN("createdAt")) AS d FROM "user" WHERE id = $1`, [ownerUserId]);
+  let score = 300;
+  const saved = Number(s.saved), target = Number(s.savingsTarget);
+  if (target > 0) score += Math.min(150, (saved / target) * 150);
+  let adhered = 0;
+  for (const b of budgets) {
+    if (Number(byCategory[b.category ?? ""] ?? 0) <= Number(b.limit_amount)) adhered++;
+  }
+  if (budgets.length) score += (adhered / budgets.length) * 120;
+  score += Math.min(130, Number(bills.rows[0].n) * 15);
+  score += Math.min(100, Number(tenure.rows[0].d ?? 0));
+  score += Math.min(50, Number(s.inflow) > 0 ? 50 : 0);
+  return { score: Math.round(Math.min(850, score)), factors: { budgets: budgets.length, adhered, billsPaid: Number(bills.rows[0].n), goals: goals.length } };
+}
 
 export async function createBusiness(ownerUserId: string, name: string) {
   if (!name) throw new Error("name is required");

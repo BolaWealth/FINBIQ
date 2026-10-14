@@ -6,7 +6,7 @@ console.log("[env] gemini:" + (process.env.GEMINI_API_KEY ? "set(len=" + process
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth, pool } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, withdrawFromGoal, goalMembers, listNotifications, createNotification, getPrefs, setPref, listTransfers, getTransfer, financeSummary, insights, rewardPoints, redeemCashback, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, withdrawFromGoal, goalMembers, smartCategorize, cashForecast, listNotifications, createNotification, getPrefs, setPref, listTransfers, getTransfer, financeSummary, insights, rewardPoints, redeemCashback, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, createCircle, joinCircle, listCircles, circleContribute, circleAdvance, createFamilyWallet, listFamilyWallets, createAutopilot, listAutopilot, runAutopilot, createPaymentLink, getPaymentLink, payPaymentLink, listPaymentLinks, finbiqScore, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
 import { paystackConfigured, initializeTransaction, verifyTransaction, verifyWebhookSignature } from "./paystack.js";
 
 const port = Number(process.env.PORT ?? 4000);
@@ -522,6 +522,159 @@ createServer(async (req, res) => {
       return res.end(csv);
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "export_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/ai/categorize") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      return json(res, 200, await smartCategorize({ text: b.text, imageBase64: b.imageBase64 }));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "categorize_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/forecast") {
+    try {
+      return json(res, 200, await cashForecast(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "forecast_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/score") {
+    try {
+      return json(res, 200, await finbiqScore(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "score_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/esusu") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createCircle(b.ownerUserId, b.name, String(b.amount ?? ""));
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "esusu_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/esusu") {
+    try {
+      return json(res, 200, await listCircles(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "esusu_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/v1/esusu/") && url.pathname.endsWith("/join")) {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await joinCircle(url.pathname.split("/")[3], b.userId, b.displayName ?? "Member");
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "join_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/v1/esusu/") && url.pathname.endsWith("/contribute")) {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await circleContribute(url.pathname.split("/")[3], b.userId, b.fromWalletId);
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "contribute_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/v1/esusu/") && url.pathname.endsWith("/advance")) {
+    try {
+      const out = await circleAdvance(url.pathname.split("/")[3]);
+      return json(res, 200, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "advance_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/family/wallets") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createFamilyWallet(b.ownerUserId, b.label, String(b.allowance ?? "0"), b.spendCap ?? null);
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "family_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/family/wallets") {
+    try {
+      return json(res, 200, await listFamilyWallets(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "family_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/autopilot") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createAutopilot(b.ownerUserId, b.goalId, String(b.minBalance ?? "0"));
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "autopilot_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/autopilot") {
+    try {
+      return json(res, 200, await listAutopilot(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "autopilot_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/autopilot/run") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      return json(res, 200, await runAutopilot(b.ownerUserId ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "autopilot_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/merchant/links") {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await createPaymentLink(b.ownerUserId, b.label, b.amount ?? null);
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "link_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/merchant/links") {
+    try {
+      return json(res, 200, await listPaymentLinks(url.searchParams.get("owner") ?? ""));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "links_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/v1/merchant/pay/")) {
+    try {
+      return json(res, 200, await getPaymentLink(url.pathname.split("/")[4]));
+    } catch (e) {
+      return json(res, 404, { error: e instanceof Error ? e.message : "not_found" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname.startsWith("/v1/merchant/pay/")) {
+    try {
+      const b = JSON.parse((await readBody(req)) || "{}");
+      const out = await payPaymentLink(url.pathname.split("/")[4], b.payerUserId, b.fromWalletId);
+      return json(res, 201, out);
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "pay_failed" });
     }
   }
 

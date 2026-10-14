@@ -1,7 +1,7 @@
 // FINBIQ ledger helper v0.1.0 — double-entry post with idempotency.
 // Uses services/api/db/schema.sql tables: transfers, journal_entries, journal_lines.
 import { pool } from "./auth.js";
-import { moneyAlerts } from "./queries.js";
+import { moneyAlerts, checkSpendCap } from "./queries.js";
 
 type PostTransferInput = {
   idempotencyKey: string;
@@ -23,6 +23,7 @@ export async function postTransfer(t: PostTransferInput) {
 
     if (t.fromWalletId === t.toWalletId) throw new Error("fromWalletId must differ from toWalletId");
     if (Number(t.amount) <= 0) throw new Error("amount must be > 0");
+    await checkSpendCap(t.fromWalletId, t.amount);
 
     const transfer = (
       await client.query(
