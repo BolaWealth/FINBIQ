@@ -486,6 +486,22 @@ export default function App() {
       {page === "savings" && (
         <>
           <h1>Savings goals</h1>
+          <div className="card" style={{ marginBottom: 12 }}>
+            <small>Redeem points — 1 pt = ₦1 cashback (min 100)</small>
+            <div className="v sm">🎁 {points} pts</div>
+            <form
+              className="row-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const pts = Number(new FormData(e.currentTarget).get("points") as string);
+                run(() => post("/v1/rewards/redeem", { ownerUserId: owner, points: pts }), `Redeemed ${pts} pts → ₦${pts} cashback`);
+                e.currentTarget.reset();
+              }}
+            >
+              <input name="points" placeholder="Points (min 100)" inputMode="numeric" required />
+              <button type="submit">Redeem</button>
+            </form>
+          </div>
           <div className="grid">
             {goals.map((g) => {
               const pct = Math.min(100, (Number(g.saved) / Number(g.target_amount)) * 100);

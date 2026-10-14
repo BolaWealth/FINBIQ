@@ -266,6 +266,44 @@ export async function awardPoints(userId: string, points: number, reason: string
   await pool.query(`INSERT INTO rewards_points (user_id, points, reason) VALUES ($1,$2,$3)`, [userId, points, reason]);
 }
 
+// Redemption: 1 pt = ₦1 cashback credited to the user's first wallet.
+// Minimum 100 pts. Real ledger posting, fully local.
+export async function redeemCashback(ownerUserId: string, points: number) {
+  if (!Number.isInteger(points) || points < 100) throw new Error("minimum redemption is 100 points");
+  const bal = await pool.query(`SELECT COALESCE(SUM(points),0) AS total FROM rewards_points WHERE user_id = $1`, [ownerUserId]);
+  if (Number(bal.rows[0].total) < points) throw new Error("not enough points");
+  const w = await pool.query(`SELECT id FROM wallets WHERE owner_user_id = $1 ORDER BY created_at LIMIT 1`, [ownerUserId]);
+  if (!w.rowCount) throw new Error("no wallet found");
+  const equity = "00000000-0000-0000-0000-000000000000";
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`INSERT INTO rewards_points (user_id, points, reason) VALUES ($1,$2,'redemption')`, [ownerUserId, -points]);
+    const entry = (
+      await client.query(
+        `INSERT INTO journal_entries (memo, reference_type, reference_id, created_by)
+         VALUES ('points cashback','adjustment',$1,$2) RETURNING id`,
+        [`cashback:${points}`, ownerUserId]
+      )
+    ).rows[0];
+    await client.query(
+      `INSERT INTO journal_lines (entry_id, wallet_id, debit, credit) VALUES ($1,$2,0,$3), ($1,$4,$3,0)`,
+      [entry.id, w.rows[0].id, points, equity]
+    );
+    await client.query(
+      `INSERT INTO notifications (user_id, type, title, body) VALUES ($1,'goal',$2,$3)`,
+      [ownerUserId, "Cashback redeemed", `${points} pts → ${points} NGN in your wallet`]
+    );
+    await client.query("COMMIT");
+    return { redeemed: points, cashback: points };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 // Simple success metrics (PRD Sec.30): counts and sums straight from the tables.
 export async function platformMetrics() {
   const q = (sql: string) => pool.query(sql).then((r) => r.rows[0]);
