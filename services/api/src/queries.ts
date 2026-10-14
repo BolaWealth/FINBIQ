@@ -110,7 +110,7 @@ export async function withdrawFromGoal(ownerUserId: string, goalId: string, wall
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(`INSERT INTO savings_contributions (goal_id, amount) VALUES ($1,$2)`, [goalId, -Number(amount)]);
+    await client.query(`INSERT INTO savings_contributions (goal_id, amount, contributor_user_id) VALUES ($1,$2,$3)`, [goalId, -Number(amount), ownerUserId]);
     const entry = (
       await client.query(
         `INSERT INTO journal_entries (memo, reference_type, reference_id, created_by)
@@ -133,11 +133,13 @@ export async function withdrawFromGoal(ownerUserId: string, goalId: string, wall
   }
 }
 
-export async function contributeToGoal(goalId: string, amount: string) {
+export async function contributeToGoal(goalId: string, amount: string, contributorUserId: string | null = null) {
   if (Number(amount) <= 0) throw new Error("amount must be > 0");
-  await pool.query(`INSERT INTO savings_contributions (goal_id, amount) VALUES ($1,$2)`, [goalId, amount]);
   const g = await pool.query(`SELECT owner_user_id, name, target_amount FROM savings_goals WHERE id = $1`, [goalId]);
-  if (g.rowCount) {
+  if (!g.rowCount) throw new Error("goal not found");
+  const who = contributorUserId ?? g.rows[0].owner_user_id;
+  await pool.query(`INSERT INTO savings_contributions (goal_id, amount, contributor_user_id) VALUES ($1,$2,$3)`, [goalId, amount, who]);
+  {
     const owner = g.rows[0].owner_user_id;
     await awardPoints(owner, 10, "save_streak");
     const tot = await pool.query(`SELECT COALESCE(SUM(amount),0) AS s FROM savings_contributions WHERE goal_id = $1`, [goalId]);
@@ -410,6 +412,16 @@ export async function platformMetrics() {
     pointsAwarded: Number(points.total),
     businesses: Number(biz.n),
   };
+}
+
+export async function goalMembers(goalId: string) {
+  const r = await pool.query(
+    `SELECT COALESCE(u.name, s.contributor_user_id) AS who, SUM(s.amount) AS total
+     FROM savings_contributions s LEFT JOIN "user" u ON u.id = s.contributor_user_id
+     WHERE s.goal_id = $1 GROUP BY COALESCE(u.name, s.contributor_user_id) ORDER BY total DESC`,
+    [goalId]
+  );
+  return r.rows;
 }
 
 export async function getProfile(userId: string) {

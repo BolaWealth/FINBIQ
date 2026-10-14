@@ -6,7 +6,7 @@ console.log("[env] gemini:" + (process.env.GEMINI_API_KEY ? "set(len=" + process
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { auth, pool } from "./auth.js";
 import { postTransfer } from "./ledger.js";
-import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, withdrawFromGoal, listNotifications, createNotification, getPrefs, setPref, listTransfers, getTransfer, financeSummary, insights, rewardPoints, redeemCashback, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
+import { getWalletBalance, listBudgets, listSavingsGoals, createBudget, budgetSpend, createSavingsGoal, contributeToGoal, withdrawFromGoal, goalMembers, listNotifications, createNotification, getPrefs, setPref, listTransfers, getTransfer, financeSummary, insights, rewardPoints, redeemCashback, getProfile, createBusiness, listBusinesses, createBusinessWallet, businessSummary, financingEstimate, investmentCatalog, platformMetrics, fundWallet, payBill, listBills, listActivity, buyAirtime, listAirtime, askFinanceQuestion, createPayment, getPaymentByReference, listPayments, completePayment, markPaymentFailed } from "./queries.js";
 import { paystackConfigured, initializeTransaction, verifyTransaction, verifyWebhookSignature } from "./paystack.js";
 
 const port = Number(process.env.PORT ?? 4000);
@@ -175,10 +175,18 @@ createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/v1/savings/contribute") {
     try {
       const b = JSON.parse((await readBody(req)) || "{}");
-      const out = await contributeToGoal(b.goalId, String(b.amount ?? ""));
+      const out = await contributeToGoal(b.goalId, String(b.amount ?? ""), b.contributorUserId ?? null);
       return json(res, 201, out);
     } catch (e) {
       return json(res, 400, { error: e instanceof Error ? e.message : "contribute_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/v1/savings/goals/") && url.pathname.endsWith("/members")) {
+    try {
+      return json(res, 200, await goalMembers(url.pathname.split("/")[4]));
+    } catch (e) {
+      return json(res, 400, { error: e instanceof Error ? e.message : "members_failed" });
     }
   }
 

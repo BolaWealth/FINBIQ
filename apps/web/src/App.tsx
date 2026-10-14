@@ -83,6 +83,7 @@ export default function App() {
   const [bills, setBills] = useState<{ id: string; biller: string; category: string; amount: string; status: string }[]>([]);
   const [query, setQuery] = useState("");
   const [prefs, setPrefs] = useState<{ type: string; enabled: boolean }[]>([]);
+  const [members, setMembers] = useState<Record<string, { who: string; total: string }[]>>({});
   const [msg, setMsg] = useState("");
 
   const owner = uid ?? OWNER;
@@ -568,6 +569,23 @@ export default function App() {
                     <input name="wamount" placeholder="Withdraw" inputMode="decimal" required />
                     <button type="submit">Withdraw</button>
                   </form>
+                  {g.type === "group" && (
+                    <div className="d">
+                      <a href="#" onClick={(e) => {
+                        e.preventDefault();
+                        if (members[g.id]) return setMembers((m) => { const c = { ...m }; delete c[g.id]; return c; });
+                        fetch(`${API}/v1/savings/goals/${g.id}/members`)
+                          .then((r) => r.json())
+                          .then((j) => Array.isArray(j) && setMembers((m) => ({ ...m, [g.id]: j })))
+                          .catch(() => {});
+                      }}>
+                        {members[g.id] ? "Hide members" : "Show members"}
+                      </a>
+                      {(members[g.id] ?? []).map((mm, i) => (
+                        <div key={i}>{mm.who}: {fmt(mm.total)}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
