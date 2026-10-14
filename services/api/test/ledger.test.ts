@@ -3,7 +3,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { postTransfer } from "../src/ledger.js";
-import { createBudget, budgetSpend, insights, setPref, getPrefs, createNotification } from "../src/queries.js";
+import { createBudget, budgetSpend, insights, setPref, getPrefs, createNotification, createSavingsGoal, contributeToGoal, withdrawFromGoal } from "../src/queries.js";
 
 const A = "11111111-1111-1111-1111-111111111111";
 const B = "22222222-2222-2222-2222-222222222222";
@@ -72,5 +72,27 @@ describe("notification prefs", () => {
     await setPref("demo-user-1", "goal", true);
     const on = await createNotification("demo-user-1", "goal", "pref test", "b");
     assert.ok("id" in on);
+  });
+});
+
+describe("locked savings", () => {
+  it("refuses early withdrawal from locked goals", async () => {
+    const g = await createSavingsGoal("demo-user-1", "LockedTest", "100000", null, "locked", "2099-01-01");
+    await contributeToGoal(g.id, "5000");
+    await assert.rejects(
+      withdrawFromGoal("demo-user-1", g.id, "11111111-1111-1111-1111-111111111111", "1000"),
+      /locked until/
+    );
+  });
+
+  it("allows withdrawal from flexible goals within saved amount", async () => {
+    const g = await createSavingsGoal("demo-user-1", "FlexTest", "100000", null, "flexible", null);
+    await contributeToGoal(g.id, "3000");
+    const out = await withdrawFromGoal("demo-user-1", g.id, "11111111-1111-1111-1111-111111111111", "1000");
+    assert.equal(out.amount, "1000");
+    await assert.rejects(
+      withdrawFromGoal("demo-user-1", g.id, "11111111-1111-1111-1111-111111111111", "99999"),
+      /insufficient/
+    );
   });
 });

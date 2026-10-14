@@ -10,7 +10,7 @@ const WALLET_A = "11111111-1111-1111-1111-111111111111";
 const WALLET_B = "22222222-2222-2222-2222-222222222222";
 
 type Budget = { id: string; limit_amount: string; period: string; category: string | null };
-type Goal = { id: string; name: string; target_amount: string; saved: string };
+type Goal = { id: string; name: string; target_amount: string; saved: string; type?: string; locked_until?: string | null };
 type Notice = { id: string; type: string; title: string; body: string; created_at: string };
 type Transfer = { id: string; amount: string; currency: string; status: string; created_at: string };
 type Activity = { id: string; kind: string; label: string; amount: string; status: string; created_at: string };
@@ -486,20 +486,50 @@ export default function App() {
       {page === "savings" && (
         <>
           <h1>Savings goals</h1>
-          <div className="card" style={{ marginBottom: 12 }}>
-            <small>Redeem points — 1 pt = ₦1 cashback (min 100)</small>
-            <div className="v sm">🎁 {points} pts</div>
+          <div className="grid2">
+            <div className="card">
+              <small>Redeem points — 1 pt = ₦1 cashback (min 100)</small>
+              <div className="v sm">🎁 {points} pts</div>
+              <form
+                className="row-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const pts = Number(new FormData(e.currentTarget).get("points") as string);
+                  run(() => post("/v1/rewards/redeem", { ownerUserId: owner, points: pts }), `Redeemed ${pts} pts → ₦${pts} cashback`);
+                  e.currentTarget.reset();
+                }}
+              >
+                <input name="points" placeholder="Points (min 100)" inputMode="numeric" required />
+                <button type="submit">Redeem</button>
+              </form>
+            </div>
             <form
-              className="row-form"
+              className="card"
               onSubmit={(e) => {
                 e.preventDefault();
-                const pts = Number(new FormData(e.currentTarget).get("points") as string);
-                run(() => post("/v1/rewards/redeem", { ownerUserId: owner, points: pts }), `Redeemed ${pts} pts → ₦${pts} cashback`);
+                const f = new FormData(e.currentTarget);
+                run(() => post("/v1/savings/goals", {
+                  ownerUserId: owner,
+                  name: f.get("name") as string,
+                  targetAmount: f.get("target") as string,
+                  type: f.get("gtype") as string,
+                  lockedUntil: (f.get("lockedUntil") as string) || null,
+                }), "Goal created");
                 e.currentTarget.reset();
               }}
             >
-              <input name="points" placeholder="Points (min 100)" inputMode="numeric" required />
-              <button type="submit">Redeem</button>
+              <small>New goal — flexible, locked or group</small>
+              <div className="row-form">
+                <input name="name" placeholder="Name e.g. Laptop" required />
+                <input name="target" placeholder="Target" inputMode="decimal" required />
+                <select name="gtype" defaultValue="flexible">
+                  <option value="flexible">Flexible</option>
+                  <option value="locked">Locked</option>
+                  <option value="group">Group</option>
+                </select>
+                <input name="lockedUntil" type="date" title="Locked until (locked goals only)" />
+                <button type="submit">Create</button>
+              </div>
             </form>
           </div>
           <div className="grid">
@@ -507,10 +537,10 @@ export default function App() {
               const pct = Math.min(100, (Number(g.saved) / Number(g.target_amount)) * 100);
               return (
                 <div className="card" key={g.id}>
-                  <small>Goal — {g.name}</small>
+                  <small>Goal — {g.name} · {g.type ?? "flexible"}</small>
                   <div className="v sm">{fmt(g.saved)} / {fmt(g.target_amount)}</div>
                   <div className="bar"><i style={{ width: `${pct}%` }} /></div>
-                  <div className="d">{pct.toFixed(0)}% saved · +10 pts per contribution</div>
+                  <div className="d">{pct.toFixed(0)}% saved · +10 pts per contribution{g.locked_until ? ` · locked until ${g.locked_until}` : ""}</div>
                   <form
                     className="row-form"
                     onSubmit={(e) => {
@@ -522,6 +552,18 @@ export default function App() {
                   >
                     <input name="amount" placeholder="Amount" inputMode="decimal" required />
                     <button type="submit">Save</button>
+                  </form>
+                  <form
+                    className="row-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const amt = new FormData(e.currentTarget).get("wamount") as string;
+                      run(() => post("/v1/savings/withdraw", { ownerUserId: owner, goalId: g.id, walletId: WALLET_A, amount: amt }), `Withdrew ${fmt(amt)} to wallet`);
+                      e.currentTarget.reset();
+                    }}
+                  >
+                    <input name="wamount" placeholder="Withdraw" inputMode="decimal" required />
+                    <button type="submit">Withdraw</button>
                   </form>
                 </div>
               );

@@ -22,7 +22,7 @@ export async function listBudgets(ownerUserId: string) {
 
 export async function listSavingsGoals(ownerUserId: string) {
   const r = await pool.query(
-    `SELECT g.id, g.name, g.target_amount,
+    `SELECT g.id, g.name, g.target_amount, g.type, g.locked_until,
        COALESCE((SELECT SUM(amount) FROM savings_contributions s WHERE s.goal_id = g.id), 0) AS saved
      FROM savings_goals g WHERE g.owner_user_id = $1 ORDER BY g.created_at`,
     [ownerUserId]
@@ -75,17 +75,61 @@ export async function budgetSpend(ownerUserId: string) {
   return { spent: String(total), byCategory };
 }
 
-export async function createSavingsGoal(ownerUserId: string, name: string, targetAmount: string, targetDate: string | null) {
+export async function createSavingsGoal(
+  ownerUserId: string, name: string, targetAmount: string, targetDate: string | null,
+  type = "flexible", lockedUntil: string | null = null
+) {
   if (!name) throw new Error("name is required");
   if (Number(targetAmount) <= 0) throw new Error("targetAmount must be > 0");
+  if (!["flexible", "locked", "group"].includes(type)) throw new Error("unknown goal type");
+  if (type === "locked" && !lockedUntil) throw new Error("locked goals need a locked_until date");
   const g = (
     await pool.query(
-      `INSERT INTO savings_goals (owner_user_id, name, target_amount, target_date)
-       VALUES ($1,$2,$3,$4) RETURNING id`,
-      [ownerUserId, name, targetAmount, targetDate]
+      `INSERT INTO savings_goals (owner_user_id, name, target_amount, target_date, type, locked_until)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+      [ownerUserId, name, targetAmount, targetDate, type, lockedUntil]
     )
   ).rows[0];
-  return { id: g.id, name, targetAmount };
+  return { id: g.id, name, targetAmount, type };
+}
+
+// Withdraw saved funds back to a wallet. Locked goals refuse before maturity.
+// Withdrawals are negative contributions (history stays complete).
+export async function withdrawFromGoal(ownerUserId: string, goalId: string, walletId: string, amount: string) {
+  if (Number(amount) <= 0) throw new Error("amount must be > 0");
+  const g = await pool.query(`SELECT * FROM savings_goals WHERE id = $1 AND owner_user_id = $2`, [goalId, ownerUserId]);
+  if (!g.rowCount) throw new Error("goal not found");
+  if (g.rows[0].type === "locked" && g.rows[0].locked_until && new Date(g.rows[0].locked_until) > new Date()) {
+    throw new Error(`locked until ${g.rows[0].locked_until}`);
+  }
+  const w = await pool.query(`SELECT id FROM wallets WHERE id = $1 AND owner_user_id = $2`, [walletId, ownerUserId]);
+  if (!w.rowCount) throw new Error("wallet not found");
+  const tot = await pool.query(`SELECT COALESCE(SUM(amount),0) AS s FROM savings_contributions WHERE goal_id = $1`, [goalId]);
+  if (Number(tot.rows[0].s) < Number(amount)) throw new Error("insufficient saved funds");
+  const equity = "00000000-0000-0000-0000-000000000000";
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`INSERT INTO savings_contributions (goal_id, amount) VALUES ($1,$2)`, [goalId, -Number(amount)]);
+    const entry = (
+      await client.query(
+        `INSERT INTO journal_entries (memo, reference_type, reference_id, created_by)
+         VALUES ('savings withdrawal','savings',$1,$2) RETURNING id`,
+        [goalId, ownerUserId]
+      )
+    ).rows[0];
+    await client.query(
+      `INSERT INTO journal_lines (entry_id, wallet_id, debit, credit) VALUES ($1,$2,0,$3), ($1,$4,$3,0)`,
+      [entry.id, walletId, amount, equity]
+    );
+    await client.query("COMMIT");
+    return { goalId, amount };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export async function contributeToGoal(goalId: string, amount: string) {
