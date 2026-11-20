@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FINBIQ — reset cache</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 34rem; margin: 15vh auto; padding: 0 1.25rem; color: #1f2937; }
+      h1 { font-size: 1.25rem; color: #5b21b6; }
+      li { margin: 0.4rem 0; }
+      a { color: #5b21b6; font-weight: 600; }
+      code { background: #f3f4f6; padding: 0.1rem 0.3rem; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>FINBIQ — clearing stale cache…</h1>
+    <ul id="log"></ul>
+    <p id="done" hidden>Done. <a href="/">Open FINBIQ</a></p>
+    <script>
+      // One-off recovery page: removes any service worker left by an older
+      // build and deletes its caches, then returns to the app.
+      const log = (t) => {
+        const li = document.createElement("li");
+        li.textContent = t;
+        document.getElementById("log").appendChild(li);
+      };
+      (async () => {
+        try {
+          if ("serviceWorker" in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map((r) => r.unregister()));
+            log(`service workers removed: ${regs.length}`);
+          }
+        } catch (e) {
+          log("service worker cleanup failed: " + e);
+        }
+        try {
+          if (typeof caches !== "undefined") {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((k) => caches.delete(k)));
+            log(`caches cleared: ${keys.length}`);
+          }
+        } catch (e) {
+          log("cache cleanup failed: " + e);
+        }
+        log("reloading the app…");
+        document.getElementById("done").hidden = false;
+        setTimeout(() => location.replace("/"), 600);
+      })();
+    </script>
+  </body>
+</html>
