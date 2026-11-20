@@ -1,7 +1,8 @@
-// FINBIQ service worker v1 — app-shell offline cache.
-// Strategy: cache-first for same-origin GET (pages/assets), network-only for
-// everything else (API calls always go live, never cached).
-const CACHE = "finbiq-shell-v1";
+// FINBIQ service worker v2 — app-shell offline cache.
+// Strategy: network-first for page navigations (so a dev/server restart can
+// never leave a stale shell), cache-first for static assets, network-only for
+// API calls.
+const CACHE = "finbiq-shell-v2";
 const CORE = ["/", "/index.html", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -24,21 +25,38 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   // API + auth: always live.
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/v1/")) return;
-  // Same-origin app shell: cache-first with background refresh.
-  if (url.origin === self.location.origin) {
+  if (url.origin !== self.location.origin) return;
+
+  // Navigations: network-first, fall back to the cached shell when offline.
+  if (request.mode === "navigate") {
     event.respondWith(
-      caches.match(request).then((hit) => {
-        const fresh = fetch(request)
-          .then((res) => {
-            if (res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(request, copy));
-            }
-            return res;
-          })
-          .catch(() => hit);
-        return hit || fresh;
-      })
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(request).then((hit) => hit || caches.match("/")))
     );
+    return;
   }
+
+  // Static assets: cache-first with background refresh. Only successful
+  // responses are cached (never an error page).
+  event.respondWith(
+    caches.match(request).then((hit) => {
+      const fresh = fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+          }
+          return res;
+        })
+        .catch(() => hit);
+      return hit || fresh;
+    })
+  );
 });
