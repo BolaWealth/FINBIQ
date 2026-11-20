@@ -10,6 +10,7 @@ function Need($cmd, $installHint) {
 }
 
 Need node "Install Node 22 LTS from nodejs.org, then reopen terminal."
+Need pnpm "Run: corepack enable pnpm  (or npm install -g pnpm), then reopen terminal."
 if (-not $NoDocker) { Need docker "Install Docker Desktop, start it, then retry (or use -NoDocker with native Postgres)." }
 
 $env:PGPASSWORD = "finbiq_dev_only"
@@ -23,6 +24,12 @@ if ($NoDocker) {
   Write-Host "== 1/5 postgres service =="
   $svc = Get-Service postgresql-x64-17 -ErrorAction SilentlyContinue
   if ($svc -and $svc.Status -ne "Running") { Start-Service postgresql-x64-17 }
+  if (-not $svc) {
+    $listening = Get-NetTCPConnection -LocalPort 5432 -State Listen -ErrorAction SilentlyContinue
+    if (-not $listening) {
+      throw "PostgreSQL 17 is not installed as a service and nothing is listening on :5432. Install PostgreSQL 17, or run .\start-local.ps1 (Docker mode) instead."
+    }
+  }
   & $psql -U postgres -h localhost -c "SELECT 1" | Out-Null
   & $psql -U postgres -h localhost -tc "SELECT 1 FROM pg_roles WHERE rolname='finbiq'" | ForEach-Object {
     if ($_ -notmatch "1") { & $psql -U postgres -h localhost -c "CREATE USER finbiq WITH PASSWORD 'finbiq_dev_only'" }
@@ -45,6 +52,14 @@ if ($NoDocker) {
 } else {
   Write-Host "== 1/5 data services =="
   docker compose up -d postgres redis
+  # Fresh volume: the container accepts connections a few seconds after start.
+  $ready = $false
+  for ($i = 0; $i -lt 30; $i++) {
+    docker compose exec -T postgres pg_isready -U finbiq -d finbiq *> $null
+    if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+    Start-Sleep -Seconds 2
+  }
+  if (-not $ready) { throw "postgres did not become ready. Run: docker compose logs postgres" }
 
   Write-Host "== 2/5 schema =="
   Get-Content services\api\db\schema.sql -Raw | docker compose exec -T postgres psql -U finbiq -d finbiq -f -
